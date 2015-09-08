@@ -1,6 +1,7 @@
 import data as ht_data
 import colors
 
+from module import Module
 # def test(elem):
 #     return elem["duration"]
 
@@ -14,6 +15,22 @@ import colors
     
 #     # Return top slice of list
 #     return sorted_list[0:end]
+
+NAME = 'duration'
+DESC = 'Look for Connections with Unusually Long Duration'
+OPTS = {
+        "customer": "",
+        "result_type": 'duration'
+        }
+
+class DurationModule(Module):
+    def __init__(self):
+        super(DurationModule, self).__init__(NAME, DESC, OPTS)
+
+    def RunModule(self):
+        run(self.options["customer"], self.options["result_type"])
+
+
 
 def write_data(data, customer, result_type):
 
@@ -97,6 +114,6 @@ def run(customer, result_type = 'duration'):
 ############### TESTING ########################
 ###############################################
 
-customer = 'test'
+#customer = 'test'
 
-run(customer)
+#run(customer)

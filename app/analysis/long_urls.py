@@ -1,7 +1,23 @@
 import data as ht_data
 import colors
+from module import Module
 
+NAME = 'long_urls'
+DESC = 'Search Logs for Unusually Long URLs'
 THRESHOLD = 1000 # number of longest urls to retrieve
+OPTS = {
+        "threshold": THRESHOLD,
+        "customer": "",
+        "result_type": "long_urls"
+        }
+
+class LongUrlsModule(Module):
+    def __init__(self):
+        super(LongUrlsModule, self).__init__(NAME, DESC, OPTS)
+
+    def RunModule(self):
+        run(self.options["customer"], self.options["result_type"])
+
 
 def write_data(data, customer, result_type):
 

@@ -11,7 +11,7 @@ import pylab as P
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 
-
+from module import Module
 
 # Threshold for lowest number of ports that indicate potential scan activity
 SCAN_THRESH = 50
@@ -20,6 +20,24 @@ SCAN_THRESH = 50
 unlikely_save_dir = './data/unlikely_scan/'
 potential_save_dir = './data/potential_scan/'
 
+
+NAME = 'scan'
+DESC = 'Find Machines Exhibiting Scanning Behavior'
+
+OPTS = {
+        "threshold": 50,
+        "unlikely_save_dir": '/var/ht/unlikely_scan/',
+        "potential_save_dir": '/var/ht/potential_scan/',
+        "customer": "",
+        "proto": ""
+        }
+
+class ScanModule(Module):
+    def __init__(self):
+        super(ScanModule, self).__init__(NAME, DESC, OPTS)
+
+    def RunModule():
+        run(self.options["customer"], self.options["proto"])
 
 def write_data(data, customer, result_type):
 
@@ -261,9 +279,9 @@ def graph_scans(customer, proto):
 ############### TESTING ########################
 ###############################################
 
-customer = 'test2'
-proto = 'http'
+#customer = 'test2'
+#proto = 'http'
 # result_type_target = 'beaconing'
 # result_type_category = 'likely_beacons'
 
-run(customer,proto)
+#run(customer,proto)

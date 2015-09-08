@@ -1,7 +1,23 @@
 from collections import defaultdict
+from module import Module
 
+NAME = 'blacklisted'
+DESC = 'Find Blacklisted IPs in the Logs'
 CUSTOMER = ""
 RESULT_TYPE = 'blacklisted'
+OPTS = {
+    "customer": CUSTOMER,
+    "result_type": RESULT_TYPE
+    }
+
+
+class BlacklistedModule(Module):
+    def __init__(self):
+        super(BlacklistedModule, self).__init__(NAME, DESC, OPTS)
+
+    def RunModule(self):
+        find_blacklisted_ipvoid(self.options["customer"])
+
 
 def write_data(data, customer, result_type):
 
