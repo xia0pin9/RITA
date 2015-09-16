@@ -12,6 +12,7 @@ def get_modules_list():
         mlist.append({
             "name": m.name,
             "description": m.description,
+            "id": m.id,
             "options": m.options
             })
     return jsonify({'modules': mlist})
