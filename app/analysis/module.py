@@ -6,6 +6,12 @@ class Module(object):
         self.description = description
         self.options = options
     
+    def SetOption(self, key, value):
+        if key in self.options:
+            self.options[key] = value
+            return True
+        return False
+
     @abc.abstractmethod
     def RunModule():
         """Implemented by the Module"""
