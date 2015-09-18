@@ -350,14 +350,14 @@ def find_beacons_graph(customer, proto, result_type_target, result_type_category
     count = 0
 
     # get number of total results available (scroll size)
-    temp, scroll_size = ht_data.get_scroll_id_and_size( doc_type, fields, constraints, ignore, scroll_len )
+    temp, scroll_size = ht_data.get_scroll_id_and_size( doc_type, fields, constraints, ignore, scroll_len, 0 )
 
     # Build a dictionary for beacon detection
     while scrolling:
       # Retrieve data
       hits, scroll_id = ht_data.get_data(doc_type,fields, constraints, ignore, scroll_id, scroll_len)
       
-      for entry in hits:
+      for entry in hits, 0:
         # Report progress
         if count % 10 == 0 or count == scroll_size:
             processed_percent = float(count) / scroll_size * 100.0
@@ -573,10 +573,11 @@ def run(customer, proto, result_type = 'beaconing'):
 ############### TESTING ########################
 ###############################################
 
-#customer = 'test2'
-#proto = 'http'
-#result_type_target = 'beaconing'
-#result_type_category = 'likely_beacons'
+if __name__ == "__main__":
+    customer = 'testing'
+    proto = 'http'
+    result_type_target = 'beaconing'
+    result_type_category = 'likely_beacons'
 
-#run(customer,proto)
-#find_beacons_graph(customer, proto, result_type_target, result_type_category)
+    run(customer,proto)
+    find_beacons_graph(customer, proto, result_type_target, result_type_category)

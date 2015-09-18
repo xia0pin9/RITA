@@ -1,6 +1,6 @@
 import json
 from elasticsearch import Elasticsearch
-es = Elasticsearch()
+es = Elasticsearch(["http://192.168.1.100:9200"])
 
 
 def build_query ( constraints, ignore ):
@@ -35,7 +35,7 @@ def get_scroll_id_and_size ( doc_type, fields, constraints, ignore, scroll_len, 
 
 	# Initialize the page (Representation of the query that you want to search)
 	page = es.search(
-		index = 'logstash-ht', 
+		index = 'testing', 
 		doc_type = doc_type,            
 		fields = fields,        # Comma-separated list of fields to return as part of a hit 
 		scroll = '1m',          # How long the server will keep data for the next scroll event
