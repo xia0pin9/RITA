@@ -1,5 +1,5 @@
 from app import app
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, make_response
 from registry import Registry
 import json
 
@@ -15,7 +15,7 @@ def get_modules_list():
             "id": m.id,
             "options": m.GetOptions()
             })
-    return jsonify({'modules': mlist})
+    return make_response(json.dumps(mlist))
 
 @app.route('/api/v1.0/importers/list', methods=['GET'])
 def get_importers_list():
@@ -32,6 +32,7 @@ def get_importers_list():
 @app.route('/api/v1.0/module/<int:module_id>/set', methods=['POST'])
 def set_module_option(module_id):
     if not request.json:
+        print("where's my json yo?")
         return jsonify({'success': False, 'reason': "I was expecting json."})
     
     dat = request.json 
