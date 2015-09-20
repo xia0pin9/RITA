@@ -7,6 +7,7 @@ class Module(object):
         self.description = description
         self.options = options
     
+    # TODO: Type validation
     def SetOption(self, key, value):
         if key in self.options:
             self.options[key]["value"] = value

@@ -2,8 +2,12 @@ from app import app
 from flask import Flask, jsonify, request, make_response
 from registry import Registry
 import json
+import global_vars
 
 R = Registry()
+
+####
+# Return a list of the modules we have loaded
 
 @app.route('/api/v1.0/modules/list', methods=['GET'])
 def get_modules_list():
@@ -17,6 +21,9 @@ def get_modules_list():
             })
     return make_response(json.dumps(mlist))
 
+####
+# Return a list of custom log importers we have loaded
+
 @app.route('/api/v1.0/importers/list', methods=['GET'])
 def get_importers_list():
     ilist = []
@@ -29,6 +36,9 @@ def get_importers_list():
             })
     return jsonify({"importers": ilist})
 
+####
+# Set an option in a module, if global call R.SetGlobal
+
 @app.route('/api/v1.0/module/<int:module_id>/set', methods=['POST'])
 def set_module_option(module_id):
     if not request.json:
@@ -37,6 +47,9 @@ def set_module_option(module_id):
     
     dat = request.json 
     for k in dat:
+        if k in global_vars.options:
+            R.SetGlobal(k, request.json[k])
+            continue
         if R.GetModules()[module_id].SetOption(k, dat[k]):
             print("Successfully set option ", k)
         else:
@@ -44,20 +57,33 @@ def set_module_option(module_id):
 
     return jsonify({'success': True})
 
+####
+# Set an option for an importer, if global call R.SetGlobal
+
 @app.route('/api/v1.0/importer/<int:importer_id>/set', methods=['POST'])
 def set_importer_option(importer_id):
     if not request.json:
         return jsonify({'success': False, 'reason': "I was expecting json."})
 
     for k in request.json:
+        if k in global_vars.options:
+            R.SetGlobal(k, request.json[k])
+            continue
         if not R.GetImporters()[importer_id].SetOption(k, request.json[k]):
             return jsonify({'success': False})
     return jsonify({'success': True})
 
+####
+# Run an importer
+
+# TODO: Celery
 @app.route('/api/v1.0/importer/<int:importer_id>/run', methods=['GET'])
 def run_importer(importer_id):
     R.GetImporters()[importer_id].Read()
     return
+
+####
+# Set the customer global
 
 @app.route('/api/v1.0/customer/set', methods=['POST'])
 def set_customer():
@@ -68,6 +94,10 @@ def set_customer():
     R.SetGlobal("customer", request.json["customer"])
     return jsonify({'success': True})
 
+####
+# Set the address of elasticsearch
+
+# TODO: This should support esservers that require authentication
 @app.route('/api/v1.0/esserver/set', methods=['POST'])
 def set_server():
     if not request.json["server"]:
@@ -75,11 +105,4 @@ def set_server():
             'reason': 'I expected json to contain server'})
     R.SetGlobal("server", request.json["server"])
     return jsonify({'success': True})
-
-## TODO: How do we deal with imports?
-#@app.route('/api/v1.0/import/list', methods=['GET'])
-#def get_import_list():
-#    dirs = [name for name in os.listdir(Settings.import_dir)
-#            if os.path.isdir(os.path.join(Settings.import_dir, name))]
-#    return jsonify({'import': dirs})
 
