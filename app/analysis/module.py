@@ -9,15 +9,21 @@ class Module(object):
     
     def SetOption(self, key, value):
         if key in self.options:
-            self.options[key] = value
+            self.options[key]["value"] = value
             return True
         return False
     
     def GetOptions(self):
-        ret = {}
+        ret = [] 
         for opt in self.options:
             if opt not in self.global_options:
-                ret[opt] = self.options[opt]
+                temp = {
+                        "name": opt,
+                        "type": self.options[opt]["type"],
+                        "value": self.options[opt]["value"]
+                        }
+                ret.append(temp)
+
         return ret
 
     @abc.abstractmethod

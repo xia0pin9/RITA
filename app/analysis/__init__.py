@@ -3,6 +3,7 @@ from blacklisted import BlacklistedModule
 from scan import ScanModule
 from duration import DurationModule
 from long_urls import LongUrlsModule
+from concurrent import ConcurrentModule
 
 def Register():
     res = []
@@ -22,4 +23,6 @@ def Register():
     lu = LongUrlsModule()
     res.append(lu)
 
+    cc = ConcurrentModule()
+    res.append(cc)
     return res

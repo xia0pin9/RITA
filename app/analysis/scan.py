@@ -1,16 +1,14 @@
-####################################################################################################
-# Basically, did this computer connect to that computer and try to connect to every/lots of portz? #
-
 import data as ht_data
 import colors
-
 import os
 import time
 from collections import defaultdict
 import pylab as P
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-
+from field_names import *
+from yay_its_a_loading_bar import progress_bar
+import datetime
 from module import Module
 
 # Threshold for lowest number of ports that indicate potential scan activity
@@ -25,11 +23,26 @@ NAME = 'scan'
 DESC = 'Find Machines Exhibiting Scanning Behavior'
 
 OPTS = {
-        "threshold": 50,
-        "unlikely_save_dir": '/var/ht/unlikely_scan/',
-        "potential_save_dir": '/var/ht/potential_scan/',
-        "customer": "",
-        "proto": ""
+        "threshold": {
+	    "type": "number",
+	    "value": 50
+	    },
+        "unlikely_save_dir": {
+            "type": "string",
+            "value": '/var/ht/unlikely_scan/'
+            },
+        "potential_save_dir": {
+            "value": '/var/ht/potential_scan/',
+            "type": "string"
+            },
+        "customer": {
+            "value": "",
+            "type": "string"
+            },
+        "proto": {
+            "value":"",
+            "type": "string"
+            }
         }
 
 class ScanModule(Module):
@@ -39,22 +52,30 @@ class ScanModule(Module):
     def RunModule():
         run(self.options["customer"], self.options["proto"])
 
-def write_data(data, customer, result_type):
+# Threshold for lowest number of ports that indicate potential scan activity
+SCAN_THRESH = 0
+
+# Save directories yaaayyy
+unlikely_save_dir = './data/unlikely_scan/'
+potential_save_dir = './data/potential_scan/'
+
+
+def write_data(src, dst, proto, customer, result_type):
 
     # format new entry
     entry = {}
-    entry['customer'] = customer
-    entry['proto']    = data[0]
-    entry['src']      = data[1]
-    entry['dst']      = data[2]
+    entry[CUSTOMER_NAME]   = customer
+    entry[PROTOCOL]        = proto
+    entry[SOURCE_IP]       = src
+    entry[DESTINATION_IP]  = dst
     
     entry['@timestamp'] = datetime.datetime.now()
     
     # write entry to elasticsearch
-    ht_data.write_data(entry, result_type)
+    ht_data.write_data(entry, customer, result_type)
 
 
-def run(customer, proto):
+def run(customer, proto, result_type = 'scanning'):
     global SCAN_THRESH, unlikely_save_dir
 
     print(colors.bcolors.OKBLUE + '[-] Checking potential port scans for '
@@ -69,17 +90,17 @@ def run(customer, proto):
         os.makedirs(unlikely_save_dir)
 
 
-    # searching for beacons in log files, not results
+    # Search will be conducted in log files
     doc_type = 'logs'
 
     # fields to return from elasticsearch query
-    fields = ['src', 'dst', 'dstport']
+    fields = [SOURCE_IP, DESTINATION_IP, DESTINATION_PORT]
     
     # restrict results to specified customer      
     if proto != None and proto != 'web':
-        constraints = [{'customer':customer}, {'proto':proto}]
+        constraints = [{PROTOCOL:proto}]
     else:
-        constraints = [{'customer':customer}]
+        constraints = []
     
     # anything we want to filter out
     ignore = []
@@ -89,79 +110,96 @@ def run(customer, proto):
 
     scroll_id = ""
     scroll_len = 1000
-
     scrolling = True
 
-    print('>>> Retrieving information from elasticsearch...')
-    print('>>> Building dictionary...')
+    count = 0
+    error_count = 0
+
+    print('>>> Retrieving information from elasticsearch and building dictionary...')
 
     # build dictionary for scan detection
     scan_dict = defaultdict(list)
 
     while scrolling:
-      # Retrieve data
-      hits, scroll_id = ht_data.get_data(doc_type,fields, constraints, ignore, scroll_id, scroll_len)
+        # Retrieve data
+        hits, scroll_id, scroll_size = ht_data.get_data(customer, doc_type,fields, constraints, ignore, scroll_id, scroll_len)
 
-      for entry in hits:
-        
-        key =  entry['fields']['src'][0].encode('ascii', 'ignore') + '$$$' + \
-               entry['fields']['dst'][0].encode('ascii', 'ignore') + '$$$'
+        progress_bar(count, scroll_size)
 
-        # Check for duplicate destination ports
-        try:
-            if int(entry['fields']['dstport'][0].encode('ascii', 'ignore')) not in scan_dict[key]:
-                scan_dict[key].append(int(entry['fields']['dstport'][0].encode('ascii', 'ignore')))
-        except:
-            continue
+        for entry in hits:
+            count += 1
+            try:    
+                    # Get source ip, destination ip, and port of current log entry
+                    src = entry['fields'][SOURCE_IP][0]
+                    dst = entry['fields'][DESTINATION_IP][0]
+                    dpt = entry['fields'][DESTINATION_PORT][0]
 
-        #############################
-        # TODO: look into utc stuff....#
-        ############################
+            except:
+                error_count += 1
+                continue
 
+            # Set up dictionary key as source and destination ip pair
+            key =  (src, dst)
 
-      if len(hits) < 1:
+            # If user name has not been added to dictionary, add set login counts to 0
+            # if key not in scan_dict:
+            #     scan_dict[key] = []
+
+            # Add unique destination ports
+            if dpt not in scan_dict[key]:
+                scan_dict[key].append(dpt)
+
+        if len(hits) < 1:
           scrolling = False
 
    
     # Get total number of keys (unique source - destination pairs)
     total_keys = len(scan_dict)
-    count = 0
-    unlikely_found = 0
+    
+    if not total_keys == 0:
+        print('>>> Running scan analysis ... ')
 
-    # Iterate over all the keys...
-    for key in scan_dict:
-        count = count + 1
-        if count % 100 == 0:
-            print('>>> Running scan analysis ... ' + str(float(count) / total_keys * 100.0) + '%')
+        key_count = 0
+        unlikely_found = 0
 
-        # Extract values from key string
-        vals = key.split('$$$')
-        src = vals[0]
-        dst = vals[1]
+        # Iterate over all the keys...
+        for key in scan_dict:
+            if (key_count % 10 == 0) or (key_count == total_keys):
+                progress_bar(key_count, total_keys)
 
-        # Get ports that match the source-destination pair
-        ports = scan_dict[key]
+            key_count += 1
 
-        # If there are more than specified amount of ports, flag as likely scan
-        if SCAN_THRESH < len(ports):
-            data = [proto].append(vals)
-            write_data(data, customer, 'potential_scan')
-        else:
-            unlikely_found = unlikely_found + 1
+            # Extract values from key string
+            src = key[0]
+            dst = key[1]
 
-            if unlikely_found % 1000 == 0:
-                # Create histogram, with port numbers as the "bins" and
-                # connection attempts per port as the "counts" in the bins
-                n, bins, patches = P.hist(ports, bins=65535, histtype='step',
-                                          normed=False)
-                P.title('Unlikely Scan (Histogram)--Customer: ' + customer + '\nSrc: '
-                        + src + ' Dst: ' + dst + ' Proto: ' + proto)
-                P.xlabel('Port Numbers')
-                P.ylabel('Connection Attempts')
-                P.savefig(unlikely_save_dir + 'Src-' + src.replace('.', '_')
-                          + '_Dst-' + dst.replace('.', '_') + '_' + proto + '_'
-                          + customer + '_hist.png')
-                P.close()
+            # Get ports that match the source-destination pair
+            ports = scan_dict[key]
+
+            # If there are more than specified amount of ports, flag as likely scan
+            if SCAN_THRESH < len(ports):
+                write_data(src, dst, proto, customer, result_type)
+            else:
+                unlikely_found = unlikely_found + 1
+
+                # if unlikely_found % 1000 == 0:
+                #     # Create histogram, with port numbers as the "bins" and
+                #     # connection attempts per port as the "counts" in the bins
+                #     n, bins, patches = P.hist(ports, bins=65535, histtype='step',
+                #                               normed=False)
+                #     P.title('Unlikely Scan (Histogram)--Customer: ' + customer + '\nSrc: '
+                #             + src + ' Dst: ' + dst + ' Proto: ' + proto)
+                #     P.xlabel('Port Numbers')
+                #     P.ylabel('Connection Attempts')
+                #     P.savefig(unlikely_save_dir + 'Src-' + src.replace('.', '_')
+                #               + '_Dst-' + dst.replace('.', '_') + '_' + proto + '_'
+                #               + customer + '_hist.png')
+                #     P.close()
+    else:
+        print (colors.bcolors.WARNING + '[!] Querying elasticsearch failed - Verify your log configuration file! [!]'+ colors.bcolors.ENDC)
+
+    if error_count > 0:
+        print (colors.bcolors.WARNING + '[!] ' + str(error_count) + ' log entries with misnamed or missing field values skipped! [!]'+ colors.bcolors.ENDC)
 
 
     time_end = time.time()
@@ -173,7 +211,7 @@ def run(customer, proto):
           + colors.bcolors.HEADER + proto  
           + colors.bcolors.OKGREEN + ' [+]')
 
-    print(colors.bcolors.OKGREEN + '[*] Time for scan analysis: ' + str(time_elapsed) + ' [*]' + colors.bcolors.ENDC)
+    print(colors.bcolors.OKGREEN + '[+] Time for scan analysis: ' + str(time_elapsed) + ' [+]' + colors.bcolors.ENDC)
 
 
 def graph_scans(customer, proto):
@@ -195,13 +233,13 @@ def graph_scans(customer, proto):
     doc_type = 'logs'
 
     # fields to return from elasticsearch query
-    fields = ['src', 'dst', 'dstport']
+    fields = [SOURCE_IP, DESTINATION_IP, DESTINATION_PORT]
     
     # restrict results to specified customer        
     if proto != None and proto != 'web':
-        constraints = [{'customer':customer}, {'proto':proto}]
+        constraints = [{PROTOCOL:proto}]
     else:
-        constraints = [{'customer':customer}]
+        constraints = []
     
     # anything we want to filter out
     ignore = []
@@ -279,8 +317,8 @@ def graph_scans(customer, proto):
 ############### TESTING ########################
 ###############################################
 
-#customer = 'test2'
-#proto = 'http'
+#customer = 'ht'
+#proto = 'udp'
 # result_type_target = 'beaconing'
 # result_type_category = 'likely_beacons'
 
