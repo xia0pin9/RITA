@@ -62,7 +62,6 @@ class Importer(object):
         # Create the index if it's not already there
         if not self.es.indices.exists(self.options["customer"]):
             res = self.es.indices.create(index=self.options["customer"])
-            print("Create index response: ", res)
 
         all_records = len(data)
         bulk_data = []
@@ -85,10 +84,9 @@ class Importer(object):
                 total += count
                 count = 0
                 print("{0} out of {1} records processed".format(total, all_records)) 
-            self.es.bulk(index=self.options["customer"],
+        self.es.bulk(index=self.options["customer"],
                     body=bulk_data, refresh=True)
-
-        pass
+        return True
 
     @abc.abstractmethod
     def Read(self):

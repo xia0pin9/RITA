@@ -13,7 +13,7 @@ import os
 import pylab as P
 
 ################### local files ########################
-import data as ht_data
+from data import ESServer
 from yay_its_a_loading_bar import progress_bar
 import colors
 from field_names import *
@@ -49,6 +49,10 @@ OPTS = {
         "result_type": {
             "type": "string",
             "value": "beaconing"
+            },
+        "server": {
+            "type": "string",
+            "value": "http://localhost:9200/"
             }
         }
 
@@ -57,8 +61,9 @@ class BeaconingModule(Module):
         super(BeaconingModule, self).__init__(NAME, DESC, OPTS)
 
     def RunModule(self):
-        run(self.options["customer"], self.options["proto"],
-                self.options["result_type"])
+        run(self.options["customer"]["value"], self.options["proto"]["value"],
+                result_type=self.options["result_type"]["value"],
+                server=self.options["server"]["value"])
         return
 
 ###                ###
@@ -244,7 +249,8 @@ def analyze_fft_data(customer, proto, result_type):
                     dpt = i['fields'][DESTINATION_PORT]
                     float_mar = float(i['fields'][mar_name][0])
 
-                except:
+                except Exception, err:
+                    print("Error 253: ", err)
                     error_count += 1
                     continue
 
@@ -374,7 +380,8 @@ def find_beacons_graph(customer, proto, result_type_target, result_type_category
                 dpt = entry['fields'][DESTINATION_PORT][0]
                 min_hz = entry['fields']['min_hz'][0]
                 max_hz = entry['fields']['max_hz'][0]
-            except:
+            except Exception, err:
+                print("Error 384: ", err)
                 error_count += 1
                 continue
 
@@ -467,17 +474,22 @@ def find_beacons_graph(customer, proto, result_type_target, result_type_category
             scrolling = False
 
     if error_count > 0:
-        print (colors.bcolors.WARNING + '[!] ' + str(error_count) + ' results entries with misnamed or missing field values skipped!'+ colors.bcolors.ENDC)
+        print (colors.bcolors.WARNING + '[!] ' + str(error_count) + 
+                ' results entries with misnamed or missing field values skipped!'+ colors.bcolors.ENDC)
 
 
     print(colors.bcolors.OKGREEN + '[+] Finished generating graphs '
          + '[+]' + colors.bcolors.ENDC)
 
-def run(customer, proto, result_type = 'beaconing'):
+def run(customer, proto, result_type='beaconing', server="http://localhost:9200/"):
 
     global TOTAL_TO_DO
     global CURR_DONE
     global TIME_DICT
+    global ht_data
+
+    ht_data = ESServer([server])
+
     CURR_DONE.value = 0
     worker_pool = Pool(processes=None, maxtasksperchild=1)
 
@@ -534,7 +546,8 @@ def run(customer, proto, result_type = 'beaconing'):
                 ts = time.mktime(dt.timetuple())
                 TIME_DICT[key].append(int(ts))
 
-            except:
+            except Exception, err:
+                print("Error 550: ", err)
                 error_count += 1
                 continue
 
@@ -592,5 +605,5 @@ def run(customer, proto, result_type = 'beaconing'):
     print(colors.bcolors.OKGREEN + '[*] Time for FFT analysis: ' + str(("%.1f") % time_elapsed) + ' seconds [*]' 
           + colors.bcolors.ENDC)
 
-    analyze_fft_data(customer, proto, result_type_target)
+    analyze_fft_data(customer, proto, result_type)
 

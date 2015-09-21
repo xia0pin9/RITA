@@ -58,6 +58,15 @@ def set_module_option(module_id):
     return jsonify({'success': True})
 
 ####
+# Run a module
+
+@app.route('/api/v1.0/module/<int:module_id>/run', methods=['GET'])
+def run_module(module_id):
+    R.GetModules()[module_id].RunModule()
+    return jsonify({'success': True})
+
+
+####
 # Set an option for an importer, if global call R.SetGlobal
 
 @app.route('/api/v1.0/importer/<int:importer_id>/set', methods=['POST'])
@@ -76,11 +85,11 @@ def set_importer_option(importer_id):
 ####
 # Run an importer
 
-# TODO: Celery
 @app.route('/api/v1.0/importer/<int:importer_id>/run', methods=['GET'])
 def run_importer(importer_id):
-    R.GetImporters()[importer_id].Read()
-    return
+    if R.GetImporters()[importer_id].Read():
+        return jsonify({'success': True})
+    return jsonify({'success': False})
 
 ####
 # Set the customer global
