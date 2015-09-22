@@ -1,10 +1,31 @@
 from app import app
-from flask import Flask, jsonify, request, make_response
+from flask import Flask, jsonify, request, make_response, send_from_directory 
 from registry import Registry
 import json
 import global_vars
 
 R = Registry()
+####
+# Load the main html file
+@app.route('/', methods=['GET','POST'])
+def root():
+    return send_from_directory('app/static', 'index.html')
+
+@app.route('/static/<path:path>')
+def resources_main(path):
+    return send_from_directory('app/static', path)
+
+@app.route('/img/<path:path>', methods=['GET'])
+def resources_img(path):
+    return send_from_directory('app/static/img', path)
+
+@app.route('/css/<path:path>', methods=['GET'])
+def resources_css(path):
+    return send_from_directory('app/static/css', path)
+
+@app.route('/js/<path:path>', methods=['GET'])
+def resources_js(path):
+    return send_from_directory('app/static/js', path)
 
 ####
 # Return a list of the modules we have loaded
