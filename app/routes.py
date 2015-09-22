@@ -55,7 +55,7 @@ def get_importers_list():
             "id": i.id,
             "options": i.GetOptions()
             })
-    return jsonify({"importers": ilist})
+    return make_response(json.dumps(ilist)) 
 
 ####
 # Set an option in a module, if global call R.SetGlobal

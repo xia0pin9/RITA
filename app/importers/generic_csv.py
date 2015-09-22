@@ -6,9 +6,18 @@ import csv
 NAME = "Generic CSV"
 DESC = "Read in a CSV to Elasitcsearch with formatting set for hunt teaming"
 OPTS = {
-        "delimiter": ',',
-        "quotechar": '"',
-        "chunk_size": 10000
+        "delimiter": {
+            "value": ',',
+            "type": "string"
+            },
+        "quotechar": { 
+            "value": '"',
+            "type": "string"
+            },
+        "chunk_size": {
+            "value": 40000,
+            "type": "number"
+            }
         }
 
 class Generic_CSV(Importer):
