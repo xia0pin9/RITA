@@ -34,7 +34,7 @@ class Importer(object):
     
     def ListFiles(self):
         return [  f 
-                for f in listdir(self.options["path"]) ]
+                for f in listdir(self.options["path"]["value"]) ]
 
     def SetOption(self, key, value):
         """
@@ -62,11 +62,11 @@ class Importer(object):
         Write a pile of records to Elasticsearch; data is a list of 
         dictionaries.
         """
-        self.es = Elasticsearch(self.options["server"], timeout=600)
+        self.es = Elasticsearch(self.options["server"]["value"], timeout=600)
         
         # Create the index if it's not already there
-        if not self.es.indices.exists(self.options["customer"]):
-            res = self.es.indices.create(index=self.options["customer"])
+        if not self.es.indices.exists(self.options["customer"]["value"]):
+            res = self.es.indices.create(index=self.options["customer"]["value"])
 
         all_records = len(data)
         bulk_data = []
@@ -76,20 +76,20 @@ class Importer(object):
             count += 1
             temp = {
                 "index": {
-                    "_index": self.options["customer"],
+                    "_index": self.options["customer"]["value"],
                     "_type": 'logs'
                     }
                 }
             bulk_data.append(temp)
             bulk_data.append(item)
             if (count % chunk) == 0:
-                res = self.es.bulk(index=self.options["customer"], 
+                res = self.es.bulk(index=self.options["customer"]["value"], 
                         body=bulk_data, refresh=True)
                 bulk_data = []
                 total += count
                 count = 0
                 print("{0} out of {1} records processed".format(total, all_records)) 
-        self.es.bulk(index=self.options["customer"],
+        self.es.bulk(index=self.options["customer"]["value"],
                     body=bulk_data, refresh=True)
         return True
 

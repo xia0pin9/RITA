@@ -28,5 +28,5 @@ class Module(object):
         return ret
 
     @abc.abstractmethod
-    def RunModule():
+    def RunModule(self):
         """Implemented by the Module"""

@@ -46,10 +46,10 @@ class Generic_CSV(Importer):
         flist = self.ListFiles()
         print(flist)
         for fpath in flist:
-            if self.options["path"][-1] == '/':
-                fpath = self.options["path"] + fpath
+            if self.options["path"]["value"][-1] == '/':
+                fpath = self.options["path"]["value"] + fpath
             else:
-                fpath = self.options["path"] + "/" + fpath
+                fpath = self.options["path"]["value"] + "/" + fpath
             if ".csv" not in fpath:
                 continue
             with open(fpath, 'r') as f:
@@ -60,8 +60,8 @@ class Generic_CSV(Importer):
                 syntax_line = syntax_line[1:]
                 syntax_list = [x.strip() for x in syntax_line.split(',')]
                 
-                rdr = csv.reader(f, delimiter=self.options["delimiter"], 
-                        quotechar=self.options["quotechar"])
+                rdr = csv.reader(f, delimiter=self.options["delimiter"]["value"], 
+                        quotechar=self.options["quotechar"]["value"])
                 
                 bunch = []
                 for data in rdr:
@@ -70,7 +70,7 @@ class Generic_CSV(Importer):
                     d = dict(zip(syntax_list, data))
                     bunch.append(d)
                 print("Writing data...")
-                res = self.Write(bunch, chunk= int(self.options["chunk_size"]))
+                res = self.Write(bunch, chunk= int(self.options["chunk_size"]["value"]))
                 print("Write completed")
         return res
 

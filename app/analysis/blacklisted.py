@@ -4,7 +4,7 @@ import multiprocessing
 from collections import defaultdict
 from field_names import *
 import colors
-import data as ht_data
+from data import ESServer
 from yay_its_a_loading_bar import progress_bar
 import time
 import datetime
@@ -27,6 +27,10 @@ OPTS = {
     "result_type": { 
         "type": "string",
         "value": RESULT_TYPE
+        },
+    "server": {
+        "type": "string",
+        "value": "http://localhost:9200"
         }
     }
 
@@ -35,7 +39,9 @@ class BlacklistedModule(Module):
         super(BlacklistedModule, self).__init__(NAME, DESC, OPTS)
 
     def RunModule(self):
-        find_blacklisted_ipvoid(self.options["customer"]["value"])
+        run(self.options["customer"]["value"],
+                result_type=self.options["result_type"]["value"],
+                server=self.options["server"]["value"])
 
 
 ###                ###
@@ -199,8 +205,12 @@ def find_blacklisted_ipvoid(customer, result_type):
         print (colors.bcolors.WARNING + '[!] ' + str(error_count) + ' log entries with misnamed or missing field values skipped! [!]'+ colors.bcolors.ENDC)
 
 
-def run(customer, result_type = 'blacklisted'):
+def run(customer, result_type = 'blacklisted', server="http://localhost:9200/"):
     global BLACKLIST_COUNT
+    global ht_data
+
+    ht_data = ESServer([server])
+
     # Yaaayyy, colors
     print(colors.bcolors.OKBLUE + '[-] Finding blacklisted URLS for customer '
           + colors.bcolors.HEADER + customer 
