@@ -1,4 +1,4 @@
-import data as ht_data
+from data import ESServer
 import colors
 from field_names import *
 
@@ -20,6 +20,10 @@ OPTS = {
         "result_type": {
             "value": 'duration',
             "type": "string"
+            },
+        "server": {
+            "value": "http://localhost:9200",
+            "type": "string"
             }
         }
 
@@ -28,7 +32,8 @@ class DurationModule(Module):
         super(DurationModule, self).__init__(NAME, DESC, OPTS)
 
     def RunModule(self):
-        run(self.options["customer"], self.options["result_type"])
+        find_long_durations(self.options["customer"]["value"], self.options["result_type"]["value"],
+            self.options["server"]["value"])
 
 ### END MODULE SETUP ###
 
@@ -52,8 +57,9 @@ def write_data(data, customer, result_type):
         ht_data.write_data(entry, customer, result_type)
         
 
-def find_long_durations(customer, result_type):
-    
+def find_long_durations(customer, result_type, server="http://localhost:5000/"):
+    global ht_data
+    ht_data = ESServer(server)
     # searching for duration in log files, not results
     doc_type = 'logs'
 

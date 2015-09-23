@@ -3,6 +3,7 @@ from flask import Flask, jsonify, request, make_response, send_from_directory
 from registry import Registry
 import json
 import global_vars
+from analysis.data import ESServer as ES
 
 R = Registry()
 ####
@@ -139,3 +140,34 @@ def set_server():
     R.SetGlobal("server", request.json["server"])
     return jsonify({'success': True})
 
+####
+# Get results out of the ES database
+@app.route('/api/v1.0/results/list', methods=['GET'])
+def get_results():
+    opts = R.GetModules()[0].GetOptions()
+    cust = ""
+    server = ""
+    for opt in opts:
+        if opt["name"] == "customer":
+            cust = opt["value"]
+        if opt["value"] == "server":
+            server = opt["value"]
+
+    fields = ["src","dst","proto"]
+    scroll_id = ""
+    scroll_len = 1000
+    es = ES([server])
+    hits, scroll_id, scroll_size = es.get_data( cust, "results", fields, [], [], scroll_len, "")
+    retval = []
+    for hit in hits:
+        try:
+            temp = {
+                    "src": hit['fields']["src"][0],
+                    "dst":  hit['fields']["dst"][0],
+                    "result_type": hit['fields']["result_type"][0]
+                    }
+            retval.append(temp)
+        except Exception, err:
+            print("Pull error: ", str(err))
+            continue
+    return make_response(json.dumps(retval))
