@@ -3,7 +3,7 @@ import abc
 class Module(object):
     def __init__(self, name, description, options):
         self.name = name
-        self.global_options = ["customer"]
+        self.global_options = ["customer", "server"]
         self.description = description
         self.options = options
     
