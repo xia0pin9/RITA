@@ -30,7 +30,7 @@ var ModuleListView = Backbone.View.extend({
       var mod = this.mlist.at(i);
       mname = mod.get('name');
       mname = mname[0].toUpperCase()+mname.slice(1);
-      appStr += '<tr class="module-row"><th class="module-head"><h2>' + mname + '</h2><h4>' + mod.get('description') + '</h4></th>';
+      appStr += '<tr class="options-row"><th class="options-head"><h2>' + mname + '</h2><h4>' + mod.get('description') + '</h4></th>';
       var olv = ( new OptionListView ({collection: mod.get('options'), id: i, el: '.options'}));
       appStr += olv.render();
       appStr += '</tr>';
@@ -50,17 +50,17 @@ var OptionListView = Backbone.View.extend({
 		this.list.set(this.collection);
 	},
 	render: function() {
-    var appStr = '<td class="module-options">';
+    var appStr = '<td class="options">';
 		for(var j=0; j < this.list.length; j++)
     {
       if(j == this.list.length/2)
-        appStr += '</td><td class="module-options">';
+        appStr += '</td><td class="options">';
     	var mov = new ModuleOptionView({model: this.list.at(j), id: this.id, el: '.options'});
     	appStr += mov.render();
       if(this.list.length == 1)
         appStr +='</td><td>';
 		}
-    appStr +='</td><td class="runBtn"><button class="active" onclick="moduleRun('+this.id+')">Run Module</button><img id="run-img'+this.id+'" src="img/loader.gif" class="deactive"/></td>';
+    appStr +='</td><td class="runBtn"><button onclick="moduleRun('+this.id+')">Run Module</button><img id="run-img'+this.id+'" src="img/loader.gif" class="loader"/></td>';
     return appStr;
   }
 });
@@ -72,15 +72,13 @@ var OptionListView = Backbone.View.extend({
 var ModuleOptionView = Backbone.View.extend({  
   render: function() {
     var type = (this.model.get('type'))
-    if (type === "bool"){
-      var appStr = "<label>"+this.model.get('name')+"</label>  <input class='"+this.model.get('name')+"' id='"+this.id+"' type='checkbox' name='"+this.model.get('name')+"' checked='"+this.model.get('value')+"' onchange='fieldChanged(this.name, this.checked, this.id)'/></br>";
-      return appStr;
-    }
+    var appStr = "";
+    if (type === "bool")
+      appStr += "<div class='option-div'><label class='label-option'>"+this.model.get('name')+"</label>  <input class='boolInput input-option' id='"+this.id+"' type='checkbox' name='"+this.model.get('name')+"' checked='"+this.model.get('value')+"' onchange='moduleOptionChanged(this.name, this.checked, this.id)'/></div>";
     else if (type === "string")
-        type = "text";              
+      appStr += "<div class='option-div'><h5 class='label-option'> <label class='label-option'>"+this.model.get('name')+"</label></h5><input class='stringInput input-option' id='"+this.id+"' type='text' name='"+this.model.get('name')+"' value='"+this.model.get('value')+"' onchange='moduleOptionChanged(this.name, this.value, this.id)'/></div>";
     else
-        type = "number";  
-    var appStr = "<label>"+this.model.get('name')+"</label>  <input class='"+this.model.get('name')+"' id='"+this.id+"' type='"+type+"' name='"+this.model.get('name')+"' value='"+this.model.get('value')+"' onchange='fieldChanged(this.name, this.value, this.id)'/></br>";
+      appStr += "<div class='option-div'><label class='label-option'>"+this.model.get('name')+"</label>  <input class='numberInput input-option' id='"+this.id+"' type='number' name='"+this.model.get('name')+"' value='"+this.model.get('value')+"' onchange='moduleOptionChanged(this.name, this.value, this.id)'/></div>";
     return appStr;
   }
 });

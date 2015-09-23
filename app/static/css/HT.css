@@ -1,55 +1,22 @@
-.container{margin-top: 80px}
-.deactive{display: none;}
-.active {
-  background-color: #FFF;
-  color: #000;
-}
+/******************
+General Body
+******************/
+.container{margin: 80px 0 80px 0;}
 .header{text-align: center}
 .body{text-align:left}
-ul {
-list-style: none;
-padding: 0;
-margin: 0;
+.deactive{display: none;}
+#customer{margin-top: 40px;}
+#customerButton{
+	display:inline-block;
 }
-li {
-	font-family:Arial;
-	font-size:20px;
-	font-weight:bold;
-	padding:13px 32px;
-	text-decoration:none;
-	text-shadow:0px 1px 0px #3d768a;
-	-moz-box-shadow: 0px 10px 14px -7px #276873;
-	-webkit-box-shadow: 0px 10px 14px -7px #276873;
-	box-shadow: 0px 10px 14px -7px #276873;
-	background-color:#599bb3;
-	cursor:pointer;
-	border-top-left-radius: 5px;
-	border-top-right-radius: 5px;
-	float: left;
-	margin: 3px 3px 0px 3px;
-	padding: 0;
-	background-color: #CCC;
-	color: #408c99;
+#settingsInput{
+	margin-left:150px;
+	margin-top:30px;
 }
 
-/*.result_type{
-max-width: 100px;
-}
-.potential_save_dir{
-max-width: 200px;
-}
-.unlikely_save_dir{
-max-width: 200px;
-}
-.threshold{
-max-width: 70px;
-}
-.proto{
-max-width: 75px;
-}
-.ignore{
-max-width: 75px;
-}*/
+/******************
+Banner Head
+******************/
 .logo{
 margin-top: 0;
 max-height: 70px;
@@ -65,50 +32,119 @@ text-align: center;
 #logo-right{
 	float:right;
 }
+
+/******************
+Tabs Bar
+******************/
+ul {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+}
+li {
+	font-family:Arial;
+	font-size:15px;
+	font-weight:bold;
+	padding:5px 5px;
+	text-decoration:none;
+	-moz-box-shadow: 5px -5px 2px -2px #00000B
+	-webkit-box-shadow: 5px -5px 2px -2px #00000B
+	box-shadow: 5px -5px 2px -2px #00000B
+	background-color:#599bb3;
+	cursor:pointer;
+	border-top-left-radius: 5px;
+	border-top-right-radius: 5px;
+	float: left;
+	margin: 3px 3px 0px 3px;
+	padding: 0;
+	background-color: #CCC;
+	color: #222222;
+}
+a :visited
+{
+	text-decoration: none !important;
+	color:#222222 !important;
+}
+a
+{
+	text-decoration: none !important;
+	color:#222222 !important;
+}
+/******************
+Table Cells
+******************/
+.numberInput{
+	width:70px;
+}
 .runBtn{
 	width:150px;
 	padding:10px;
 }
-.module-options{
+.options{
 	padding:5px;
 	text-align: left;
 }
-.module-head{
+.label-option{
+	padding:0;
+	margin:0;
+/*	margin-top: 5px;
+	margin-bottom: 2px;*/
+}
+.input-option{
+	padding:0;
+	margin:; 0;
+/*	margin-top:2px;
+	margin-bottom: 5px;
+*/}
+.options-head{
 	padding:5px;
+	max-width: 450px;
+}
+.option-div{
+	margin:5px;
+	padding:5px;
+	height:50px;
 }
 tr{
   -moz-box-shadow: 0px 10px 14px -7px #276873;
   -webkit-box-shadow: 0px 10px 14px -7px #276873;
-  box-shadow: 0px 10px 14px -7px #276873;
-
+  box-shadow: 5px -10px 5px -7px #276873;
   -moz-border-radius:5px;
   -webkit-border-radius:5px;
   border-radius:5px;
   cursor:pointer;
   font-family:Arial;
-  padding:5px;
+  padding:10px;
   text-decoration:none;
   text-shadow:0px 1px 0px #3d768a;	
 }
+.loader{
+	display:none;
+}
+/******************
+Buttons(clearly)
+******************/
 button {
   -moz-box-shadow: 0px 10px 14px -7px #276873;
   -webkit-box-shadow: 0px 10px 14px -7px #276873;
   box-shadow: 0px 10px 14px -7px #276873;
-  background-color:#599bb3;
+  background-color:#ffffff;
   -moz-border-radius:5px;
   -webkit-border-radius:5px;
   border-radius:5px;
   cursor:pointer;
-  color:#ffffff;
+  color:#222222;
   font-family:Arial;
   font-size:20px;
   font-weight:bold;
-  padding:13px 32px;
+  padding:5px 15px;
   text-decoration:none;
   text-shadow:0px 1px 0px #3d768a;
+  display:block;
 }
 button:hover {
-  background-color:#408c99;
+  background-color:#222222;
+  color:#ffffff;
 }
 button:active {
   position:relative;

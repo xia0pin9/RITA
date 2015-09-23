@@ -12,8 +12,8 @@ var TabsView = Backbone.View.extend({
   $content   : $("#tabs").find("div"),
   tabs       : [
 		{label : "Modules", content : '<div class="row"><table class="module"><thead><tr><h1 class="header">Modules</h1></tr></thead></table></div>', active : true},
-    {label : "Import", content : '<div class="row"><div class="import body col-offset-md-3 col-md-6"><h1 class="header">Logs to Import</h1></div></div>', active : false},
-    {label : "Settings", content : '<div class="row"><div class="settings body col-offset-md-3 col-md-6"><h1 class="header">Settings</h1></div></div>', active : false},
+    {label : "Import", content : '<div class="row"><table class="importer"><thead><tr><h1 class="header">Import Logs</h1></tr></thead></table></div>', active : false},
+    {label : "Settings", content : '<div class="row"><div class="settings body col-offset-md-3 col-md-6"><h1 class="header">Settings</h1><div id="settingsInput"><h4>Customer Name</h4><input id="newCustomerInput" type="text" onchange=customerInput(this.id)></br></br><h4>Server Address</h4><input id="newServerInput" type="text" value="localhost:9200" onchange=updateServer()></div></div></div>', active : false},
     {label : "Results", content : '<div class="row"><div class="results body col-offset-md-3 col-md-6"><h1 class="header">Results</h1></div></div>', active : false}
   ],
   labelTmpl       : _.template($("#label-tmpl").html()),
@@ -85,7 +85,7 @@ var TabsView = Backbone.View.extend({
 
 
 	var tabView = new TabsView({el: "#tabs"});
-	var importView = new ImporterListView({el: '.import'});
+	var importView = new ImporterListView({el: '.importer'});
 	var moduleView = new ModuleListView({el: '.module'});
 
 });
