@@ -1,4 +1,4 @@
-import data as ht_data
+from data import ESServer
 import colors
 import os
 import time
@@ -42,6 +42,10 @@ OPTS = {
         "proto": {
             "value":"",
             "type": "string"
+            },
+         "server": {
+            "value": "http://localhost:9200",
+            "type": "string"
             }
         }
 
@@ -49,8 +53,9 @@ class ScanModule(Module):
     def __init__(self):
         super(ScanModule, self).__init__(NAME, DESC, OPTS)
 
-    def RunModule():
-        run(self.options["customer"], self.options["proto"])
+    def RunModule(self):
+        run(self.options["customer"]["value"], self.options["proto"]["value"],
+                server=self.options["server"]["value"])
 
 # Threshold for lowest number of ports that indicate potential scan activity
 SCAN_THRESH = 0
@@ -64,7 +69,6 @@ def write_data(src, dst, proto, customer, result_type):
 
     # format new entry
     entry = {}
-    entry[CUSTOMER_NAME]   = customer
     entry[PROTOCOL]        = proto
     entry[SOURCE_IP]       = src
     entry[DESTINATION_IP]  = dst
@@ -75,7 +79,9 @@ def write_data(src, dst, proto, customer, result_type):
     ht_data.write_data(entry, customer, result_type)
 
 
-def run(customer, proto, result_type = 'scanning'):
+def run(customer, proto, result_type = 'scanning', server="http://localhost:9200"):
+    global ht_data
+    ht_data = ESServer(server)
     global SCAN_THRESH, unlikely_save_dir
 
     print(colors.bcolors.OKBLUE + '[-] Checking potential port scans for '

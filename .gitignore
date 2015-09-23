@@ -1,3 +1,6 @@
+fakedata.py
+*.txt
+*.file
 *.sh
 *.csv
 *.pyc

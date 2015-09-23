@@ -83,11 +83,11 @@ def set_module_option(module_id):
 
 @app.route('/api/v1.0/module/<int:module_id>/run', methods=['GET'])
 def run_module(module_id):
-    try:
-        R.GetModules()[module_id].RunModule()
-        return jsonify({'success': True})
-    except Exception, err:
-        return jsonify({'success': False, "reason": str(err)})
+    #try:
+    R.GetModules()[module_id].RunModule()
+    return jsonify({'success': True})
+    #except Exception, err:
+    #    return jsonify({'success': False, "reason": str(err)})
 
 
 ####
