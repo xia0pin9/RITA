@@ -87,15 +87,11 @@ Table Cells
 .label-option{
 	padding:0;
 	margin:0;
-/*	margin-top: 5px;
-	margin-bottom: 2px;*/
 }
 .input-option{
 	padding:0;
-	margin:; 0;
-/*	margin-top:2px;
-	margin-bottom: 5px;
-*/}
+	margin: 0;
+}
 .options-head{
 	padding:5px;
 	max-width: 450px;
@@ -104,6 +100,12 @@ Table Cells
 	margin:5px;
 	padding:5px;
 	height:50px;
+}
+.loader{
+	display:none;
+}
+table{
+	width:99%;
 }
 tr{
   -moz-box-shadow: 0px 10px 14px -7px #276873;
@@ -118,9 +120,8 @@ tr{
   text-decoration:none;
   text-shadow:0px 1px 0px #3d768a;	
 }
-.loader{
-	display:none;
-}
+
+
 /******************
 Buttons(clearly)
 ******************/
