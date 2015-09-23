@@ -10,8 +10,7 @@ function moduleOptionChanged (field, value, id){
     contentType:"application/json; charset=utf-8",
     dataType:"json",
     data: updateField,
-    success: function(){console.log("Module option "+field+" for Module "+id+" updated");
-    },
+    success: function(){console.log("Module option "+field+" for Module "+id+" updated");},
     error: function(){console.log("Unable to update module option "+field+" for Module "+id);}
   });
 }
@@ -42,27 +41,45 @@ function importOptionChanged (field, value, id){
 function moduleRun (id){
   var image = "run-img"+id;
   var buttons = document.getElementsByTagName('button');
+  //hide no results view and replace with process results view
+  document.getElementById("no-results").style.display = 'none';
+  document.getElementById("process-results").style.display = 'block';  
+  //display loader gif
+  document.getElementById(image).style.display = 'block';
+  //hide page buttons
   for(var i=0; i< buttons.length; i++)
     buttons[i].style.display = 'none';
-  document.getElementById(image).style.display = 'block';
-
+  
   return $.ajax({
-    type: "POST",
+    type: "GET",
     url: BASE_URL + "module/"+id+"/run", 
     contentType:"application/json; charset=utf-8",
     dataType:"json",
     //data: updateField,
     success: function() {
       console.log("Module "+id+" completed running");
-      document.getElementById(image).style.display = 'none';
-      for(var i=0; i< buttons.length; i++)
-        buttons[i].style.display = 'block';
+    //hide processing results view, replace with link to kibana
+    document.getElementById("process-results").style.display = 'none';
+    document.getElementById("results").style.display = 'block';
+    //hide loader gif
+    document.getElementById(image).style.display = 'none';
+    //re-display page buttons
+    for(var i=0; i< buttons.length; i++)
+      buttons[i].style.display = 'block';
+    document.getElementById("results-btn").style.display = 'inline-block';
     },
     error: function(){
       console.log("Unable to run module "+id);
+      //hide processing results view, replace with error in results view
+      document.getElementById("process-results").style.display = 'none';
+      document.getElementById("error-results").style.display = 'block';
+      //hide loader gif
       document.getElementById(image).style.display = 'none';
+      //re-display page buttons
       for(var i=0; i< buttons.length; i++)
         buttons[i].style.display = 'block';
+      //special button
+      document.getElementById("results-btn").style.display = 'inline-block';
     }
   });
 }
@@ -76,25 +93,34 @@ function moduleRun (id){
 function importerRun (id){
   var image = "importrun-img"+id;
   var buttons = document.getElementsByTagName('button');
+  //display loader giv
+  document.getElementById(image).style.display = 'block';
+  //hide page buttons
   for(var i=0; i< buttons.length; i++)
     buttons[i].style.display = 'none';
-  document.getElementById(image).style.display = 'block';
   return $.ajax({
-    type: "POST",
+    type: "GET",
     url: BASE_URL + "importer/"+id+"/run", 
     contentType:"application/json; charset=utf-8",
     dataType:"json",
     success: function() {
     console.log("Import log "+id+" imported");
+    //hide loader gif
     document.getElementById(image).style.display = 'none';
+    //re-display page buttons
     for(var i=0; i< buttons.length; i++)
       buttons[i].style.display = 'block';
+    document.getElementById("results-btn").style.display = 'inline-block';
     },
     error: function(){
       console.log("Unable to import log "+id);
+      //hide loader gif
       document.getElementById(image).style.display = 'none';
+      //re-display page buttons
       for(var i=0; i< buttons.length; i++)
         buttons[i].style.display = 'block';
+      //special button
+      document.getElementById("results-btn").style.display = 'inline-block';
     }
   });
 }
@@ -116,10 +142,12 @@ function customerInput (id){
   inputBox.value = "";
   display.innerHTML += value;
   inputBox.value += value;
-
-  document.getElementById("tabs").style.display = 'block';
-  document.getElementById("customerDisplay").style.display = 'block';
+  //hide initial customer input view
   document.getElementById("customer").style.display = 'none';
+  //display customer name banner and tabs views
+  document.getElementById("customerDisplay").style.display = 'block';
+  document.getElementById("tabs").style.display = 'block';
+  
   var updateField = "{\"customer\":\""+value+"\"}";
   return $.ajax({
     type: "POST",

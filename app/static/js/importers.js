@@ -27,6 +27,7 @@ var ImporterListView = Backbone.View.extend({
     var appStr = '<tbody>';
     for(var i =0; i < this.list.length;i++)
     {
+      //create new table row for each module      
       var imp = this.list.at(i);
       name = imp.get('name');
       name = name[0].toUpperCase()+name.slice(1);
@@ -53,7 +54,8 @@ var ImporterOptionListView = Backbone.View.extend({
     var appStr = '<td class="options">';
     for(var j=0; j < this.list.length; j++)
     {
-      if(j == this.list.length/2)
+      //create two columns of options
+      if(j == Math.ceil(this.list.length/2))
         appStr += '</td><td class="options">';
       var iov = new ImporterOptionView({model: this.list.at(j), id: this.id, el: '.options'});
       appStr += iov.render();
@@ -73,6 +75,7 @@ var ImporterOptionView = Backbone.View.extend({
   render: function() {
     var type = (this.model.get('type'))
     var appStr = "";
+    //use option type to determine input type and format label placement
     if (type === "bool")
       appStr += "<div class='option-div'><label class='label-option'>"+this.model.get('name')+"</label>  <input class='boolInput input-option' id='"+this.id+"' type='checkbox' name='"+this.model.get('name')+"' checked='"+this.model.get('value')+"' onchange='moduleOptionChanged(this.name, this.checked, this.id)'/></div>";
     else if (type === "string")

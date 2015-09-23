@@ -121,7 +121,28 @@ tr{
   text-shadow:0px 1px 0px #3d768a;	
 }
 
-
+/******************
+Results Page
+******************/
+#no-results{
+	text-align: center;
+	display: block;
+}
+#process-results{
+	text-align: center;
+	display: none;
+}
+#error-results{
+	text-align: center;
+	display: none;
+}
+#results{
+	text-align: center;
+	display:none;
+}
+#results-btn{
+	display:inline-block;
+}
 /******************
 Buttons(clearly)
 ******************/

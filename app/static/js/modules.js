@@ -27,6 +27,7 @@ var ModuleListView = Backbone.View.extend({
     var appStr = '<tbody>';
     for(var i =0; i < this.mlist.length;i++)
     {
+      //create new table row for each module
       var mod = this.mlist.at(i);
       mname = mod.get('name');
       mname = mname[0].toUpperCase()+mname.slice(1);
@@ -53,12 +54,13 @@ var OptionListView = Backbone.View.extend({
     var appStr = '<td class="options">';
 		for(var j=0; j < this.list.length; j++)
     {
-      if(j == this.list.length/2)
+      //create two columns of options
+      if(j == Math.ceil(this.list.length/2))
         appStr += '</td><td class="options">';
     	var mov = new ModuleOptionView({model: this.list.at(j), id: this.id, el: '.options'});
     	appStr += mov.render();
       if(this.list.length == 1)
-        appStr +='</td><td>';
+        appStr +='</td><td class="options">';
 		}
     appStr +='</td><td class="runBtn"><button onclick="moduleRun('+this.id+')">Run Module</button><img id="run-img'+this.id+'" src="img/loader.gif" class="loader"/></td>';
     return appStr;
@@ -73,6 +75,7 @@ var ModuleOptionView = Backbone.View.extend({
   render: function() {
     var type = (this.model.get('type'))
     var appStr = "";
+    //use option type to determine input type and format label placement
     if (type === "bool")
       appStr += "<div class='option-div'><label class='label-option'>"+this.model.get('name')+"</label>  <input class='boolInput input-option' id='"+this.id+"' type='checkbox' name='"+this.model.get('name')+"' checked='"+this.model.get('value')+"' onchange='moduleOptionChanged(this.name, this.checked, this.id)'/></div>";
     else if (type === "string")
