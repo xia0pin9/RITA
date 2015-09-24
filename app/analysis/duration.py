@@ -4,6 +4,9 @@ from field_names import *
 
 from module import Module
 
+# Note: threshold specifies the percentage of longest durations to be retained
+
+
 ### BEGIN MODULE SETUP ###
 
 NAME = 'duration'
@@ -18,7 +21,7 @@ OPTS = {
             "type": "number"
             },
         "result_type": {
-            "value": 'duration',
+            "value": 'long_durations',
             "type": "string"
             },
         "server": {
@@ -32,34 +35,31 @@ class DurationModule(Module):
         super(DurationModule, self).__init__(NAME, DESC, OPTS)
 
     def RunModule(self):
-        find_long_durations(self.options["customer"]["value"], self.options["result_type"]["value"],
+        run(self.options["customer"]["value"], 
+            self.options["threshold"]["value"],
+            self.options["result_type"]["value"],
             self.options["server"]["value"])
 
 ### END MODULE SETUP ###
-
-THRESHOLD = 0.02 # Top percentage of longest durations to be retained
+ 
 
 def write_data(data, customer, result_type):
-
     # Iterate over each item 
     for item in data:
         # format new entry
         entry = {}
-        entry[SOURCE_IP]      = item['fields'][SOURCE_IP]
-        entry[SOURCE_PORT]  = item['fields'][SOURCE_PORT]
-        entry[DESTINATION_IP]      = item['fields'][DESTINATION_IP]
-        entry[DESTINATION_PORT]  = item['fields'][DESTINATION_PORT]
-        entry[DURATION] = item['fields'][DURATION]
-        entry[TIMESTAMP] = item['fields'][TIMESTAMP]
-
+        entry[SOURCE_IP]        = item['fields'][SOURCE_IP]
+        entry[SOURCE_PORT]      = item['fields'][SOURCE_PORT]
+        entry[DESTINATION_IP]   = item['fields'][DESTINATION_IP]
+        entry[DESTINATION_PORT] = item['fields'][DESTINATION_PORT]
+        entry[DURATION]         = item['fields'][DURATION]
+        entry[TIMESTAMP]        = item['fields'][TIMESTAMP]
 
         # write entry to elasticsearch
         ht_data.write_data(entry, customer, result_type)
         
 
-def find_long_durations(customer, result_type, server="http://localhost:5000/"):
-    global ht_data
-    ht_data = ESServer(server)
+def find_long_durations(customer, threshold, result_type):
     # searching for duration in log files, not results
     doc_type = 'logs'
 
@@ -87,7 +87,7 @@ def find_long_durations(customer, result_type, server="http://localhost:5000/"):
     __, _, scroll_size = ht_data.get_data(customer, doc_type,fields, constraints, ignore, scroll_id, scroll_len, sort)
 
     # determine percentage of results to be kept
-    num_needed = int(scroll_size * THRESHOLD)
+    num_needed = int(scroll_size * threshold)
     num_remaining = num_needed
 
     # Get elasticsearch results sorted by duration time, and keep top percentage as set by THRESHOLD
@@ -105,13 +105,29 @@ def find_long_durations(customer, result_type, server="http://localhost:5000/"):
 
     num_found = len(results)
 
-    print(colors.bcolors.WARNING + '[+] ' + str(num_found) + ' results found! [+]'+ colors.bcolors.ENDC)
+    print(colors.bcolors.WARNING + '[!] ' + str(num_found) + ' results found! [!]'+ colors.bcolors.ENDC)
 
     if (num_found > 0):
-        print(colors.bcolors.OKGREEN + '>>> Writing results of analysis...')
+        print(colors.bcolors.OKBLUE + '>>> Writing results of analysis...')
         write_data(results, customer, result_type)
         print('>>> ... Done!' + colors.bcolors.ENDC)
     else:
         print ('Verify \'duration\' field exists in your log configuration file!'+ colors.bcolors.ENDC)
         
+
+def run(customer, threshold, result_type, server="http://localhost:5000/"):
+    global ht_data
+    ht_data = ESServer(server)
+
+    print(colors.bcolors.OKBLUE + '[-] Finding long connections for customer ' 
+          + colors.bcolors.HEADER + customer 
+          + colors.bcolors.OKBLUE + ' [-]'
+          + colors.bcolors.ENDC)
+
+    find_long_durations(customer, threshold, result_type)
+
+    print(colors.bcolors.OKGREEN + '[+] Finished checking long connections for customer ' 
+          + colors.bcolors.HEADER + customer 
+          + colors.bcolors.OKGREEN + ' [+]'
+          + colors.bcolors.ENDC)
 
