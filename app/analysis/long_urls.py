@@ -1,23 +1,34 @@
-import data as ht_data
-import colors
-from field_names import *
+##########################################
+#           EXTERNAL LIBRARIES           #    
+##########################################
 import datetime
-from yay_its_a_loading_bar import progress_bar
-from data import ESServer
 
+##########################################
+#           INTERNAL LIBRARIES           #    
+##########################################
+from yay_its_a_loading_bar import progress_bar
+import colors
+from data import ESServer
+from field_names import *
 from module import Module
 
+##########################################
+#              MODULE SETUP              #    
+##########################################
 NAME = 'long_urls'
 DESC = 'Search Logs for Unusually Long URLs'
-THRESHOLD = 1000 # number of longest urls to retrieve
+
+# Default number of longest urls to retrieve
+LONG_URL_threshold = 1000
+
 OPTS = {
-        "threshold": {
-            "value": THRESHOLD,
-            "type": "number"
-            },
         "customer": { 
             "value": "",
             "type": "string"
+            },
+        "threshold": {
+            "value": LONG_URL_threshold,
+            "type": "number"
             },
         "result_type": {
             "value": "long_urls",
@@ -34,8 +45,13 @@ class LongUrlsModule(Module):
         super(LongUrlsModule, self).__init__(NAME, DESC, OPTS)
 
     def RunModule(self):
-        run(self.options["customer"]["value"], self.options["result_type"]['value'], self.options['server']['value'])
-
+        run(self.options["customer"]["value"],
+            self.options["threshold"]["value"], 
+            self.options["result_type"]['value'], 
+            self.options['server']['value'])
+##########################################
+#           END MODULE SETUP             #    
+##########################################
 
 def write_data(data, customer, result_type):
     # format new entry
@@ -48,7 +64,7 @@ def write_data(data, customer, result_type):
     ht_data.write_data(entry, customer, result_type)
         
 
-def find_long_urls(customer, result_type = 'long_urls'):
+def find_long_urls(customer, threshold, result_type):
     # searching for duration in log files, not results
     doc_type = 'logs'
 
@@ -67,7 +83,7 @@ def find_long_urls(customer, result_type = 'long_urls'):
 
     scrolling = True
 
-    print('>>> Retrieving information from elasticsearch...')
+    print(colors.bcolors.OKBLUE + '>>> Retrieving information from elasticsearch...')
 
     url_dict = {}
 
@@ -114,15 +130,15 @@ def find_long_urls(customer, result_type = 'long_urls'):
         keys = sorted(url_dict.keys(), reverse=True)
         done = False
 
-        # Get THRESHOLD amount of longest urls
+        # Get threshold amount of longest urls
         for url_length in keys:            
             if done == True:
                 break
             for entry in url_dict[url_length]:
-                if (key_count % 10 == 0) or (key_count == THRESHOLD):
-                    progress_bar(key_count, THRESHOLD)
+                if (key_count % 10 == 0) or (key_count == threshold):
+                    progress_bar(key_count, threshold)
                 key_count += 1
-                if key_count > THRESHOLD:
+                if key_count > threshold:
                     done = True
                     break
                 else:
@@ -134,8 +150,10 @@ def find_long_urls(customer, result_type = 'long_urls'):
         print '>>> Writing results of analysis...'
         for data in final_res:
             write_count += 1
-            progress_bar(write_count, write_total)     
+            if (write_count % 10 == 0) or (write_count == write_total):        
+                progress_bar(write_count, write_total)     
             write_data(data, customer, result_type)
+            
             
     else:
         print (colors.bcolors.WARNING + '[!] Querying elasticsearch failed - Verify your log configuration file! [!]'+ colors.bcolors.ENDC)
@@ -145,14 +163,19 @@ def find_long_urls(customer, result_type = 'long_urls'):
 
     
 
-def run(customer, result_type = 'long_urls', server="http://localhost:9200/"):
+def run(customer, threshold, result_type, server):
     global ht_data
     ht_data = ESServer([server])
-    print(colors.bcolors.OKBLUE + '[-] Finding long URLs for customer *' + customer + '* [-]')
-    find_long_urls(customer, result_type)
-    print(colors.bcolors.OKGREEN + '[+] Finished checking long URLs for customer *' + customer + '* [+]' + colors.bcolors.ENDC)
 
+    print(colors.bcolors.OKBLUE + '[-] Finding long URLs for customer ' 
+          + colors.bcolors.HEADER + customer 
+          + colors.bcolors.OKBLUE + ' [-]'
+          + colors.bcolors.ENDC)
     
+    find_long_urls(customer, threshold, result_type)
 
-#customer = 'bhis_test'
-#run(customer)
+    print(colors.bcolors.OKGREEN + '[+] Finished checking long URLs for customer ' 
+          + colors.bcolors.HEADER + customer 
+          + colors.bcolors.OKGREEN + ' [+]'
+          + colors.bcolors.ENDC)
+    

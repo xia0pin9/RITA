@@ -1,23 +1,28 @@
-from data import ESServer
+##########################################
+#           INTERNAL LIBRARIES           #    
+##########################################
+from yay_its_a_loading_bar import progress_bar
 import colors
+from data import ESServer
 from field_names import *
-
 from module import Module
 
-# Note: threshold specifies the percentage of longest durations to be retained
-
-
-### BEGIN MODULE SETUP ###
-
+##########################################
+#              MODULE SETUP              #    
+##########################################
 NAME = 'duration'
 DESC = 'Look for Connections with Unusually Long Duration'
+
+# Default percentage of longest durations to be retained
+DURATION_THESHOLD = 0.02
+
 OPTS = {
         "customer": {
             "value": "",
             "type": "string"
             },
         "threshold": {
-            "value": 0.02,
+            "value": DURATION_THESHOLD,
             "type": "number"
             },
         "result_type": {
@@ -40,8 +45,10 @@ class DurationModule(Module):
             self.options["result_type"]["value"],
             self.options["server"]["value"])
 
-### END MODULE SETUP ###
- 
+##########################################
+#           END MODULE SETUP             #    
+##########################################
+
 
 def write_data(data, customer, result_type):
     # Iterate over each item 

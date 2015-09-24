@@ -1,20 +1,25 @@
+##########################################
+#           EXTERNAL LIBRARIES           #    
+##########################################
 import urllib2
 from multiprocessing import Process, Pool, Value, Lock, Queue, Manager
 import multiprocessing
 from collections import defaultdict
+import time
+import datetime
+
+##########################################
+#           INTERNAL LIBRARIES           #    
+##########################################
 from field_names import *
 import colors
 from data import ESServer
 from yay_its_a_loading_bar import progress_bar
-import time
-import datetime
-
 from module import Module
 
-###             ###
-#   MODULE SETUP  #    
-###             ###
-
+##########################################
+#              MODULE SETUP              #    
+##########################################
 NAME = 'blacklisted'
 DESC = 'Find Blacklisted IPs in the Logs'
 
@@ -41,28 +46,22 @@ class BlacklistedModule(Module):
         run(self.options["customer"]["value"],
             self.options["result_type"]["value"],
             self.options["server"]["value"])
+##########################################
+#           END MODULE SETUP             #    
+##########################################
 
-
-###                ###
-#  END MODULE SETUP  #
-###                ###
-
-
-
-###                    ###
-#   SHARED MEMORY SETUP  #    
-###                    ###
-
+##########################################
+#          SHARED MEMORY SETUP           #    
+##########################################
 TOTAL_TO_DO = Value('i', 1)
 CURR_DONE = 0
 UNLIKELY_CURR = 0
 CURR_DONE = Value('i', 0)
 UNLIKELY_CURR = Value('i', 0)
 CURR_DONE_LOCK = Lock()
-
-####                    ###
-# END SHARED MEMORY SETUP #    
-###                     ###
+##########################################
+#        END SHARED MEMORY SETUP         #    
+##########################################
 
 
 def write_data(data, customer, result_type):
