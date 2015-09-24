@@ -3,6 +3,7 @@ import colors
 from field_names import *
 import datetime
 from yay_its_a_loading_bar import progress_bar
+from data import ESServer
 
 from module import Module
 
@@ -22,6 +23,10 @@ OPTS = {
             "value": "long_urls",
             "type": "string"
             },
+        "server": {
+        "type": "string",
+        "value": "http://localhost:9200"
+        }
         }
 
 class LongUrlsModule(Module):
@@ -29,7 +34,7 @@ class LongUrlsModule(Module):
         super(LongUrlsModule, self).__init__(NAME, DESC, OPTS)
 
     def RunModule(self):
-        run(self.options["customer"], self.options["result_type"])
+        run(self.options["customer"]["value"], self.options["result_type"]['value'], self.options['server']['value'])
 
 
 def write_data(data, customer, result_type):
@@ -129,7 +134,7 @@ def find_long_urls(customer, result_type = 'long_urls'):
         print '>>> Writing results of analysis...'
         for data in final_res:
             write_count += 1
-            progress_bar(write_count, write_total)       
+            progress_bar(write_count, write_total)     
             write_data(data, customer, result_type)
             
     else:
@@ -140,7 +145,9 @@ def find_long_urls(customer, result_type = 'long_urls'):
 
     
 
-def run(customer, result_type = 'long_urls'):
+def run(customer, result_type = 'long_urls', server="http://localhost:9200/"):
+    global ht_data
+    ht_data = ESServer([server])
     print(colors.bcolors.OKBLUE + '[-] Finding long URLs for customer *' + customer + '* [-]')
     find_long_urls(customer, result_type)
     print(colors.bcolors.OKGREEN + '[+] Finished checking long URLs for customer *' + customer + '* [+]' + colors.bcolors.ENDC)
