@@ -227,13 +227,16 @@ def run(customer, result_type, server):
 
     find_blacklisted_ipvoid(customer, result_type)
 
+    # Report number of connections to blacklisted IPs found
+    hits, scroll_id, scroll_size = ht_data.get_data(customer, 'results', [], [{'result_type':result_type}], [], '', 1000)
+    print(colors.bcolors.FAIL + '[!] Found ' + str(scroll_size) + ' connections to blacklisted URLs in log entries [!]'
+          + colors.bcolors.ENDC)
+
     print(colors.bcolors.OKGREEN + '[+] Finished finding blacklisted URLS for customer '
           + colors.bcolors.HEADER + customer
           + colors.bcolors.OKGREEN + ' [+]'
           + colors.bcolors.ENDC)
 
-    hits, scroll_id, scroll_size = ht_data.get_data(customer, 'results', [], [{'result_type':result_type}], [], '', 1000)
-    print(colors.bcolors.FAIL + '[!] Found ' + str(scroll_size) + ' connections to blacklisted URLs in log entries [!]'
-          + colors.bcolors.ENDC)
+    
 
 
