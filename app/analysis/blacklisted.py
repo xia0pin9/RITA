@@ -17,20 +17,19 @@ from module import Module
 
 NAME = 'blacklisted'
 DESC = 'Find Blacklisted IPs in the Logs'
-CUSTOMER = ""
-RESULT_TYPE = 'blacklisted'
+
 OPTS = {
     "customer": {
-        "type": "string",
-        "value": CUSTOMER
+        "value": "",
+        "type": "string"        
         },
     "result_type": { 
-        "type": "string",
-        "value": RESULT_TYPE
+        "value": 'blacklisted',
+        "type": "string"
         },
     "server": {
-        "type": "string",
-        "value": "http://localhost:9200"
+        "value": "http://localhost:9200",
+        "type": "string"
         }
     }
 
@@ -40,13 +39,19 @@ class BlacklistedModule(Module):
 
     def RunModule(self):
         run(self.options["customer"]["value"],
-                result_type=self.options["result_type"]["value"],
-                server=self.options["server"]["value"])
+            self.options["result_type"]["value"],
+            self.options["server"]["value"])
 
 
 ###                ###
 #  END MODULE SETUP  #
-###                ### 
+###                ###
+
+
+
+###                    ###
+#   SHARED MEMORY SETUP  #    
+###                    ###
 
 TOTAL_TO_DO = Value('i', 1)
 CURR_DONE = 0
@@ -54,7 +59,12 @@ UNLIKELY_CURR = 0
 CURR_DONE = Value('i', 0)
 UNLIKELY_CURR = Value('i', 0)
 CURR_DONE_LOCK = Lock()
-BLACKLIST_COUNT = 0
+
+####                    ###
+# END SHARED MEMORY SETUP #    
+###                     ###
+
+
 def write_data(data, customer, result_type):
     # format new entry
     entry = {}
@@ -66,7 +76,6 @@ def write_data(data, customer, result_type):
     
     # write entry to elasticsearch
     ht_data.write_data(entry, customer, result_type)
-
 
 def filter_ip(ip_in):
     """
@@ -86,7 +95,6 @@ def filter_ip(ip_in):
         ret_val = True
 
     return ret_val
-
 
 def find_blacklisted_ipvoid_mp(arglist):
     global CURR_DONE
@@ -205,7 +213,7 @@ def find_blacklisted_ipvoid(customer, result_type):
         print (colors.bcolors.WARNING + '[!] ' + str(error_count) + ' log entries with misnamed or missing field values skipped! [!]'+ colors.bcolors.ENDC)
 
 
-def run(customer, result_type = 'blacklisted', server="http://localhost:9200/"):
+def run(customer, result_type, server):
     global BLACKLIST_COUNT
     global ht_data
 
