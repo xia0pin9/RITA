@@ -10,7 +10,17 @@ class Module(object):
     # TODO: Type validation
     def SetOption(self, key, value):
         if key in self.options:
-            self.options[key]["value"] = value
+            if self.options[key]["type"] == "number":
+                self.options[key]["value"] = float(value)
+            elif self.options[key]["type"] == "string":
+                self.options[key]["value"] = value
+            elif self.options[key]["value"] == "bool":
+                if value == "True" or value == "true" or value == True:
+                    self.options[key]["value"] = True;
+                else:
+                    self.options[key]["value"] = False
+            else:
+                return False
             return True
         return False
     
