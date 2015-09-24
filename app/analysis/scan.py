@@ -1,49 +1,73 @@
-from data import ESServer
-import colors
-import os
-import time
-from collections import defaultdict
-import pylab as P
+##########################################
+#           EXTERNAL LIBRARIES           #    
+##########################################
+
+################################################################
+# [!] KEEP FOLLOWING FOUR IMPORTS AT THE TOP AND IN ORDER [!]  #
+# (This will force matplotlib to not use any Xwindows backend) #
+################################################################
+import matplotlib
+matplotlib.use('Agg') 
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-from field_names import *
-from yay_its_a_loading_bar import progress_bar
+################################################################
+
+import os
+import time
 import datetime
+from collections import defaultdict
+import pylab as P
+
+##########################################
+#           INTERNAL LIBRARIES           #    
+##########################################
+from yay_its_a_loading_bar import progress_bar
+import colors
+from data import ESServer
+from field_names import *
 from module import Module
 
-# Threshold for lowest number of ports that indicate potential scan activity
-SCAN_THRESH = 50
-
-# Save directories yaaayyy
-unlikely_save_dir = './data/unlikely_scan/'
-potential_save_dir = './data/potential_scan/'
-
-
+##########################################
+#              MODULE SETUP              #    
+##########################################
 NAME = 'scan'
 DESC = 'Find Machines Exhibiting Scanning Behavior'
 
+# Default threshold for lowest number of ports that indicate potential scan activity
+SCAN_THRESH = 50
+
+# Default save directory for generated graphs
+POTENTIAL_SCAN_SAVE_DIR = '/var/ht/potential_scan/'
+
+# Default protocol
+SCAN_PROTO = "tcp"
+
 OPTS = {
-        "threshold": {
-	    "type": "number",
-	    "value": 50
-	    },
-        "unlikely_save_dir": {
-            "type": "string",
-            "value": '/var/ht/unlikely_scan/'
-            },
-        "potential_save_dir": {
-            "value": '/var/ht/potential_scan/',
-            "type": "string"
-            },
         "customer": {
             "value": "",
             "type": "string"
             },
         "proto": {
-            "value":"",
+            "value": SCAN_PROTO,
             "type": "string"
             },
-         "server": {
+        "threshold": {
+    	    "value": SCAN_THRESH,
+    	    "type": "number"
+	        },
+        "graph": {
+            "value": False,
+            "type": "bool"
+            },
+        "potential_save_dir": {
+            "value": POTENTIAL_SCAN_SAVE_DIR,
+            "type": "string"
+            },
+        "result_type": {
+            "value": 'scanning',
+            "type": "string"
+            },       
+        "server": {
             "value": "http://localhost:9200",
             "type": "string"
             }
@@ -54,19 +78,19 @@ class ScanModule(Module):
         super(ScanModule, self).__init__(NAME, DESC, OPTS)
 
     def RunModule(self):
-        run(self.options["customer"]["value"], self.options["proto"]["value"],
-                server=self.options["server"]["value"])
-
-# Threshold for lowest number of ports that indicate potential scan activity
-SCAN_THRESH = 0
-
-# Save directories yaaayyy
-unlikely_save_dir = './data/unlikely_scan/'
-potential_save_dir = './data/potential_scan/'
+        run(self.options["customer"]["value"],
+            self.options["proto"]["value"],
+            self.options["threshold"]["value"],
+            self.options["graph"]["value"],
+            self.options["potential_save_dir"]["value"],
+            self.options["result_type"]["value"],            
+            self.options["server"]["value"])
+##########################################
+#           END MODULE SETUP             #    
+##########################################
 
 
 def write_data(src, dst, proto, customer, result_type):
-
     # format new entry
     entry = {}
     entry[PROTOCOL]        = proto
@@ -79,23 +103,7 @@ def write_data(src, dst, proto, customer, result_type):
     ht_data.write_data(entry, customer, result_type)
 
 
-def run(customer, proto, result_type = 'scanning', server="http://localhost:9200"):
-    global ht_data
-    ht_data = ESServer(server)
-    global SCAN_THRESH, unlikely_save_dir
-
-    print(colors.bcolors.OKBLUE + '[-] Checking potential port scans for '
-          + colors.bcolors.HEADER + customer 
-          + colors.bcolors.OKBLUE + ' with protocol '
-          + colors.bcolors.HEADER + proto  
-          + colors.bcolors.OKBLUE + ' [-]')
-
-
-    # Create directory for unlikely scans if it doesn't exist already
-    if not os.path.exists(unlikely_save_dir):
-        os.makedirs(unlikely_save_dir)
-
-
+def scan_analysis(customer, proto, threshold, graph, potential_save_dir, result_type):
     # Search will be conducted in log files
     doc_type = 'logs'
 
@@ -111,9 +119,6 @@ def run(customer, proto, result_type = 'scanning', server="http://localhost:9200
     # anything we want to filter out
     ignore = []
 
-    # Get start time
-    time_start = time.time()
-
     scroll_id = ""
     scroll_len = 1000
     scrolling = True
@@ -121,7 +126,7 @@ def run(customer, proto, result_type = 'scanning', server="http://localhost:9200
     count = 0
     error_count = 0
 
-    print('>>> Retrieving information from elasticsearch and building dictionary...')
+    print(colors.bcolors.OKBLUE + '>>> Retrieving information from elasticsearch and building dictionary...')
 
     # build dictionary for scan detection
     scan_dict = defaultdict(list)
@@ -130,7 +135,9 @@ def run(customer, proto, result_type = 'scanning', server="http://localhost:9200
         # Retrieve data
         hits, scroll_id, scroll_size = ht_data.get_data(customer, doc_type,fields, constraints, ignore, scroll_id, scroll_len)
 
-        progress_bar(count, scroll_size)
+        # Report progress
+        if (count % 10 == 0) or (count == scroll_size):
+            progress_bar(count, scroll_size)
 
         for entry in hits:
             count += 1
@@ -147,13 +154,11 @@ def run(customer, proto, result_type = 'scanning', server="http://localhost:9200
             # Set up dictionary key as source and destination ip pair
             key =  (src, dst)
 
-            # If user name has not been added to dictionary, add set login counts to 0
-            # if key not in scan_dict:
-            #     scan_dict[key] = []
-
             # Add unique destination ports
             if dpt not in scan_dict[key]:
                 scan_dict[key].append(dpt)
+
+        
 
         if len(hits) < 1:
           scrolling = False
@@ -170,10 +175,10 @@ def run(customer, proto, result_type = 'scanning', server="http://localhost:9200
 
         # Iterate over all the keys...
         for key in scan_dict:
+            key_count += 1
+
             if (key_count % 10 == 0) or (key_count == total_keys):
                 progress_bar(key_count, total_keys)
-
-            key_count += 1
 
             # Extract values from key string
             src = key[0]
@@ -183,30 +188,52 @@ def run(customer, proto, result_type = 'scanning', server="http://localhost:9200
             ports = scan_dict[key]
 
             # If there are more than specified amount of ports, flag as likely scan
-            if SCAN_THRESH < len(ports):
+            if threshold < len(ports):
+                if graph:
+                    ports = [int(i) for i in scan_dict[key]]
+                    graph_scans(customer, src, dst, proto, ports, threshold, potential_save_dir)
                 write_data(src, dst, proto, customer, result_type)
             else:
                 unlikely_found = unlikely_found + 1
 
-                # if unlikely_found % 1000 == 0:
-                #     # Create histogram, with port numbers as the "bins" and
-                #     # connection attempts per port as the "counts" in the bins
-                #     n, bins, patches = P.hist(ports, bins=65535, histtype='step',
-                #                               normed=False)
-                #     P.title('Unlikely Scan (Histogram)--Customer: ' + customer + '\nSrc: '
-                #             + src + ' Dst: ' + dst + ' Proto: ' + proto)
-                #     P.xlabel('Port Numbers')
-                #     P.ylabel('Connection Attempts')
-                #     P.savefig(unlikely_save_dir + 'Src-' + src.replace('.', '_')
-                #               + '_Dst-' + dst.replace('.', '_') + '_' + proto + '_'
-                #               + customer + '_hist.png')
-                #     P.close()
     else:
-        print (colors.bcolors.WARNING + '[!] Querying elasticsearch failed - Verify your log configuration file! [!]'+ colors.bcolors.ENDC)
+        print (colors.bcolors.WARNING + '[!] Querying elasticsearch failed - Verify your protocol choice or log configuration file! [!]'+ colors.bcolors.ENDC)
 
     if error_count > 0:
         print (colors.bcolors.WARNING + '[!] ' + str(error_count) + ' log entries with misnamed or missing field values skipped! [!]'+ colors.bcolors.ENDC)
 
+
+def graph_scans(customer, src, dst, proto, ports, threshold, potential_save_dir):
+    # Create directory for potential scan graphs if it doesn't exist already
+    if not os.path.exists(potential_save_dir):
+        os.makedirs(potential_save_dir)
+
+    # Create histogram, with port numbers as the "bins" and connection
+    # attempts per port as the "counts" in the bins
+    n, bins, patches = P.hist(ports, bins=65535, histtype='step',
+                              normed=False)
+    P.gca().set_ylim(ymax=10)
+    P.title('Potential Scan (Histogram) for src: ' + str(src) + 
+        ', dst: ' + dst + ', protocol: ' + proto + ', threshold: ' + threshold)
+    P.xlabel('Port Numbers')
+    P.ylabel('Connection Attempts')
+    P.savefig(potential_save_dir + 'src_' + src.replace('.','_') + '__' + 'dst_' + dst.replace('.','_') + '.png')
+    P.close()
+
+
+def run(customer, proto, threshold, graph, potential_save_dir, result_type, server):
+    global ht_data
+    ht_data = ESServer(server)
+    print(colors.bcolors.OKBLUE + '[-] Checking potential port scans for '
+          + colors.bcolors.HEADER + customer 
+          + colors.bcolors.OKBLUE + ' with protocol '
+          + colors.bcolors.HEADER + proto  
+          + colors.bcolors.OKBLUE + ' [-]')
+
+    # Get start time
+    time_start = time.time()
+
+    scan_analysis(customer, proto, threshold, graph, potential_save_dir, result_type)
 
     time_end = time.time()
     time_elapsed = time_end - time_start
@@ -219,113 +246,3 @@ def run(customer, proto, result_type = 'scanning', server="http://localhost:9200
 
     print(colors.bcolors.OKGREEN + '[+] Time for scan analysis: ' + str(time_elapsed) + ' [+]' + colors.bcolors.ENDC)
 
-
-def graph_scans(customer, proto):
-
-    global SCAN_THRESH, potential_save_dir
-
-    print(colors.bcolors.OKBLUE + '[-] Graphing potential port scans for'
-          + colors.bcolors.HEADER + customer 
-          + colors.bcolors.OKBLUE + ' with protocol '
-          + colors.bcolors.HEADER + proto  
-          + colors.bcolors.OKBLUE + ' [-]')
-
-    # Create directory for potential scan graphs if it doesn't exist already
-    if not os.path.exists(potential_save_dir):
-        os.makedirs(potential_save_dir)
-
-
-     # searching for beacons in log files, not results
-    doc_type = 'logs'
-
-    # fields to return from elasticsearch query
-    fields = [SOURCE_IP, DESTINATION_IP, DESTINATION_PORT]
-    
-    # restrict results to specified customer        
-    if proto != None and proto != 'web':
-        constraints = [{PROTOCOL:proto}]
-    else:
-        constraints = []
-    
-    # anything we want to filter out
-    ignore = []
-
-    # Get start time
-    time_start = time.time()
-
-    # DO THE USUAL SCANNING TO RETRIEVE ELASTICSEARCH RESULTS
-    # ADD {RESULT TYPE = POTENTIAL_SCANS} TO CONSTRAINTS
-    # THESE RESULTS ARE SRC/DST CONNECTIONS THAT ACCESSED A LOT OF PORTS (POTENTIAL PORT SCANS) 
-    # PUT RESULTS IN THIS FORMAT:
-    # res[0] <- source ip
-    # res[1] <- destination ip
-    # res[2] <- destination port
-
-    # AFTER GETTING RESULTS:
-    # (loop over results (R)): 
-        # DO ANOTHER ELASTICSEARCH QUERY
-        # fields = destination_port
-        # constraints = customer and proto from parameters...
-        #               src and dst IP's from (R)
-        # THIS WILL RETURN ALL THE PORTS FOR THE GIVEN SRC/DST IP'S
-        # STORE THEM IN THE ports VARIABLE AND CREATE A HISTOGRAM WITH THE 
-        # CODE ON THE BOTTOM OF THIS FUNCTION
-        # THIS HISTOGRAM WILL SHOW THE PORTS THAT WERE ACCESSED ON THIS UNIQUE SRC/DST CONNECTION
-
-
-
-
-    res_curr = 0
-    res_total = len(results)
-    for res in results:
-        res_curr = res_curr + 1
-        if res_curr % 10 == 0:
-            print('Total Scan Graphs Done: ' + \
-                    str(float(res_curr) / res_total * 100.0) + '%')
-
-        src = res[0]
-        dst = res[1]
-
-        q1 = 'SELECT ' + DPT_DB + ' FROM ' + table + ' WHERE ' + SRC_DB
-        q1 += ' = \'' + src + '\' AND ' + DST_DB + ' = \'' + dst + '\''
-        
-        if proto != None and proto != 'web':
-            q1 += ' AND PROTO = \'' + proto + '\''
-
-        curs.execute(q1)
-
-        try:
-            ports = [int(a[0]) for a in curs.fetchall()]
-        except:
-            continue
-
-        # Create histogram, with port numbers as the "bins" and connection
-        # attempts per port as the "counts" in the bins
-        n, bins, patches = P.hist(ports, bins=65535, histtype='step',
-                                  normed=False)
-        P.gca().set_ylim(ymax=10)
-        P.title('Potential Scan (Histogram)--Table: ' + table + '\nSrc: '
-                + src + ' Dst: ' + dst + ' Proto: ' + proto)
-        P.xlabel('Port Numbers')
-        P.ylabel('Connection Attempts')
-        P.savefig(potential_save_dir + 'Src-' + src.replace('.', '_')
-                  + '_Dst-' + dst.replace('.', '_') + '_' + proto + '_'
-                  + table + '_hist.png')
-        P.close()
-
-    conn.close()
-
-    print('++Finished graphing potential port scans for: ' + table
-          + ' with Protocol: ' + proto + '++')
-
-
-################################################
-############### TESTING ########################
-###############################################
-
-#customer = 'ht'
-#proto = 'udp'
-# result_type_target = 'beaconing'
-# result_type_category = 'likely_beacons'
-
-#run(customer,proto)
