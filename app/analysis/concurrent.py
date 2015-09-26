@@ -1,18 +1,29 @@
+##########################################
+#           EXTERNAL LIBRARIES           #    
+##########################################
 import datetime
-from field_names import *
-import colors
-import data as ht_data
+from collections import defaultdict
 
+##########################################
+#           INTERNAL LIBRARIES           #    
+##########################################
+from yay_its_a_loading_bar import progress_bar
+import colors
+from data import ESServer
+from field_names import *
 from module import Module
+
+
+##########################################
+#              MODULE SETUP              #    
+##########################################
+NAME = "concurrent"
+DESC = "Look for multiptle concurrent logins"
 
 LOG_ON =  '4624' # logged on successfully
 LOG_OFF = '4634' # logged off successfully
 # 4674 : an operation was attempted on a privileged object
 
-### Module Setup ###
-
-NAME = "concurrent"
-DESC = "Look for multiptle concurrent logins"
 OPTS = {
         "customer": {
             "type": "string",
@@ -21,6 +32,10 @@ OPTS = {
         "result_type": {
             "type": "string",
             "value": "concurrent"
+            },
+        "server": {
+            "value": "http://localhost:9200",
+            "type": "string"
             }
         }
 
@@ -29,9 +44,12 @@ class ConcurrentModule(Module):
         super(ConcurrentModule, self).__init__(NAME, DESC, OPTS)
 
     def RunModule(self):
-        run(self.options["customer"])
-
-### End Module Setup ###
+        run(self.options["customer"],
+            self.options["result_type"],
+            self.options["server"]["value"])
+##########################################
+#           END MODULE SETUP             #    
+##########################################
 
 def write_data(user, data, customer, result_type):
     # format new entry
@@ -61,7 +79,7 @@ def find_concurrent(customer, result_type):
     sort = TIMESTAMP + ':asc'
 
     # create dictionary to store user login info
-    concurrent_dict = {}
+    concurrent_dict = defaultdict(dict)
 
     scroll_id = ""
 
@@ -69,21 +87,31 @@ def find_concurrent(customer, result_type):
 
     scroll_len = 1000
 
+    count = 0
+    error_count = 0
+
     print(colors.bcolors.OKBLUE +'>>> Retrieving information from elasticsearch...')
     
     while scrolling:
         # Retrieve data
         hits, scroll_id, scroll_size = ht_data.get_data(customer, doc_type, fields, constraints, ignore, scroll_id, scroll_len, sort)
    
+        # Report progress
+        if (count % 10 == 0) or (count == scroll_size):
+            progress_bar(count, scroll_size)
+
         # For every unique username (used as dict key), make a dictionary of event activity
         for entry in hits:
-            user =  entry['fields'][USER_NAME][0]
-            event = entry['fields'][EVENT_ID][0]
-            src = entry['fields'][SOURCE_IP][0]
+            try:
+                user =  entry['fields'][USER_NAME][0]
+                event = entry['fields'][EVENT_ID][0]
+                src = entry['fields'][SOURCE_IP][0]
+            except:
+                error_count += 1
+                continue
             
             # If user name has not been added to dictionary, add set login counts to 0
             if user not in concurrent_dict:
-                concurrent_dict[user] = {}
                 concurrent_dict[user]['logged_on'] = False
                 concurrent_dict[user]['concurrent'] = 0
                 concurrent_dict[user]['max_concurrent'] = 0
@@ -115,24 +143,29 @@ def find_concurrent(customer, result_type):
         if len(hits) < 1:
           scrolling = False
 
-    num_found = 0
+    if not (len(concurrent_dict) == 0):
+        num_found = 0
+        print('>>> Checking for concurrent logins and writing results to elasticsearch... '+ colors.bcolors.ENDC)
 
-    if len(concurrent_dict) == 0:
+        # record all users with concurrent logins
+        for user, data in concurrent_dict.iteritems():
+            if data['max_concurrent'] > 0:
+                num_found += 1
+                write_data(user, data, customer, result_type)
+
+        print(colors.bcolors.WARNING + '[+] ' + str(num_found) + ' concurrent logins found! [+]'+ colors.bcolors.ENDC)
+    else:
         print (colors.bcolors.WARNING + 'Querying elasticsearch failed - Verify your log configuration file!'+ colors.bcolors.ENDC)
-        return
 
-    print('>>> Checking for concurrent logins and writing results to elasticsearch... '+ colors.bcolors.ENDC)
+    if error_count > 0:
+        print (colors.bcolors.WARNING + '[!] ' + str(error_count) + ' log entries with misnamed or missing field values skipped! [!]'+ colors.bcolors.ENDC)
 
-    # record all users with concurrent logins
-    for user, data in concurrent_dict.iteritems():
-        if data['max_concurrent'] > 0:
-            num_found += 1
-            write_data(user, data, customer, result_type)
-
-    print(colors.bcolors.WARNING + '[+] ' + str(num_found) + ' concurrent logins found! [+]'+ colors.bcolors.ENDC)
 
    
-def run(customer, result_type = 'concurrent'):
+def run(customer, result_type, server):
+    global ht_data
+    ht_data = ESServer(server)
+
     # Yaaayyy, colors
     print(colors.bcolors.OKBLUE   + '[-] Finding concurrent logins for customer '
           + colors.bcolors.HEADER + customer 
@@ -146,4 +179,4 @@ def run(customer, result_type = 'concurrent'):
           + colors.bcolors.OKGREEN + ' [+]'
           + colors.bcolors.ENDC)
 
-#run('fakecon')
+run('test','test','tets')
