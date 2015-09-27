@@ -175,10 +175,12 @@ def scan_analysis(customer, proto, threshold, graph, potential_save_dir, result_
 
         # Iterate over all the keys...
         for key in scan_dict:
-            key_count += 1
 
             if (key_count % 10 == 0) or (key_count == total_keys):
                 progress_bar(key_count, total_keys)
+
+
+            key_count += 1
 
             # Extract values from key string
             src = key[0]

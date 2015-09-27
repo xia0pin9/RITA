@@ -44,8 +44,8 @@ class ConcurrentModule(Module):
         super(ConcurrentModule, self).__init__(NAME, DESC, OPTS)
 
     def RunModule(self):
-        run(self.options["customer"],
-            self.options["result_type"],
+        run(self.options["customer"]["value"],
+            self.options["result_type"]["value"],
             self.options["server"]["value"])
 ##########################################
 #           END MODULE SETUP             #    
@@ -54,7 +54,6 @@ class ConcurrentModule(Module):
 def write_data(user, data, customer, result_type):
     # format new entry
     entry = {}
-    entry[CUSTOMER_NAME] = customer
     entry[USER_NAME]     = user
     entry[SOURCE_IP]     = data['src_list']  
     entry[TIMESTAMP]     = datetime.datetime.now()
@@ -103,9 +102,9 @@ def find_concurrent(customer, result_type):
         # For every unique username (used as dict key), make a dictionary of event activity
         for entry in hits:
             try:
-                user =  entry['fields'][USER_NAME][0]
+                user  =  entry['fields'][USER_NAME][0]
                 event = entry['fields'][EVENT_ID][0]
-                src = entry['fields'][SOURCE_IP][0]
+                src   = entry['fields'][SOURCE_IP][0]
             except:
                 error_count += 1
                 continue
@@ -155,13 +154,11 @@ def find_concurrent(customer, result_type):
 
         print(colors.bcolors.WARNING + '[+] ' + str(num_found) + ' concurrent logins found! [+]'+ colors.bcolors.ENDC)
     else:
-        print (colors.bcolors.WARNING + 'Querying elasticsearch failed - Verify your log configuration file!'+ colors.bcolors.ENDC)
+        print (colors.bcolors.WARNING + '\nQuerying elasticsearch failed - Verify your log configuration file!'+ colors.bcolors.ENDC)
 
     if error_count > 0:
         print (colors.bcolors.WARNING + '[!] ' + str(error_count) + ' log entries with misnamed or missing field values skipped! [!]'+ colors.bcolors.ENDC)
 
-
-   
 def run(customer, result_type, server):
     global ht_data
     ht_data = ESServer(server)
@@ -179,4 +176,4 @@ def run(customer, result_type, server):
           + colors.bcolors.OKGREEN + ' [+]'
           + colors.bcolors.ENDC)
 
-run('test','test','tets')
+

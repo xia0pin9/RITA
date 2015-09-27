@@ -1,5 +1,17 @@
+##########################################
+#           EXTERNAL LIBRARIES           #    
+##########################################
+
+################################################################
+# [!] KEEP FOLLOWING FOUR IMPORTS AT THE TOP AND IN ORDER [!]  #
+# (This will force matplotlib to not use any Xwindows backend) #
+################################################################
+import matplotlib
+matplotlib.use('Agg') 
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+################################################################
+
 import time
 import datetime
 import dateutil.parser as dt_parser
@@ -12,39 +24,74 @@ from collections import defaultdict
 import os
 import pylab as P
 
-################### local files ########################
-from data import ESServer
+##########################################
+#           INTERNAL LIBRARIES           #    
+##########################################
 from yay_its_a_loading_bar import progress_bar
 import colors
+from data import ESServer
 from field_names import *
-
 from module import Module
 
-###             ###
-#   MODULE SETUP  #    
-###             ###
+##########################################
+#              MODULE SETUP              #    
+##########################################
 NAME = "beaconing"
 DESC = "Analyze Logs for Beaconing Behavior"
-OPTS = { 
-        "graph": {
-            "type": "bool",
-            "value": False
-            },
-        "threshold": {
-            "type": "number",
-            "value": 40
-            },
-        "ignore": {
-            "type": "string",
-            "value": ""
-            },
+
+##### Global variables for multiprocessing stuff #######
+TOTAL_TO_DO = Value('i', 1)
+TIME_DICT = defaultdict(list)
+CURR_DONE = 0
+UNLIKELY_CURR = 0
+CURR_DONE = Value('i', 0)
+UNLIKELY_CURR = Value('i', 0)
+CURR_DONE_LOCK = Lock()
+
+MAR_NAMES_LIST = [  ('MAR_2SEC', 1/60.0, 1/2.0), # frequencies once between 2 sec and once between 60 sec
+                    ('MAR_60SEC', 0, 1/60.0) ]
+
+# Default threshold for max average ratio
+MAR_THRESH_LIKELY = 40
+MAR_THRESH_UNLIKELY = 20
+
+BEACON_PROTO = 'tcp'
+
+POTENTIAL_SAVE_DIR = '/var/ht/potential_beacon/'
+UNLIKELY_SAVE_DIR = '/var/ht/unlikely_beacon/'
+
+OPTS = {
         "customer": {
             "type": "string",
             "value": ""
             },
         "proto": {
             "type": "string",
-            "value": "tcp"
+            "value": BEACON_PROTO
+            },
+        "graph_likely": {
+            "type": "bool",
+            "value": False
+            },
+        "graph_unlikely": {
+            "type": "bool",
+            "value": False
+            },
+        "threshold_likely": {
+            "type": "number",
+            "value": MAR_THRESH_LIKELY
+            },
+        "threshold_unlikely": {
+            "type": "number",
+            "value": MAR_THRESH_UNLIKELY
+            },
+        "potential_save_dir": {
+            "value": POTENTIAL_SAVE_DIR,
+            "type": "string"
+            },
+        "unlikely_save_dir": {
+            "value": UNLIKELY_SAVE_DIR,
+            "type": "string"
             },
         "result_type": {
             "type": "string",
@@ -61,26 +108,20 @@ class BeaconingModule(Module):
         super(BeaconingModule, self).__init__(NAME, DESC, OPTS)
 
     def RunModule(self):
-        run(self.options["customer"]["value"], self.options["proto"]["value"],
-                result_type=self.options["result_type"]["value"],
-                server=self.options["server"]["value"])
+        run(self.options["customer"]["value"], 
+            self.options["proto"]["value"],
+            self.options["threshold_likely"]["value"],
+            self.options["threshold_unlikely"]["value"],
+            self.options["graph_likely"]["value"],
+            self.options["graph_unlikely"]["value"],
+            self.options["potential_save_dir"]["value"],
+            self.options["unlikely_save_dir"]["value"],
+            self.options["result_type"]["value"],
+            self.options["server"]["value"])
         return
-
-###                ###
-#  END MODULE SETUP  #
-###                ### 
-
-##### Global variables for multiprocessing stuff #######
-TOTAL_TO_DO = Value('i', 1)
-TIME_DICT = defaultdict(list)
-CURR_DONE = 0
-UNLIKELY_CURR = 0
-CURR_DONE = Value('i', 0)
-UNLIKELY_CURR = Value('i', 0)
-CURR_DONE_LOCK = Lock()
-
-MAR_NAMES_LIST = [  ('MAR_2SEC', 1/60.0, 1/2.0), # frequencies once between 2 sec and once between 60 sec
-                    ('MAR_60SEC', 0, 1/60.0) ]   
+##########################################
+#           END MODULE SETUP             #    
+##########################################
 
 
 def perform_fft_mp(arglist):
@@ -96,66 +137,88 @@ def perform_fft_mp(arglist):
 
     key, db_queue = arglist
 
+    # Mutex lock to update number of items completed so far
     with CURR_DONE_LOCK:
         CURR_DONE.value += 1
         local_curr_done = CURR_DONE.value
+
+        # Draw a progress bar
         if (local_curr_done % 1000 == 0) or (local_curr_done == TOTAL_TO_DO.value):
             progress_bar(local_curr_done, TOTAL_TO_DO.value)
     
-    src = key[0]
-    dst = key[1]
-    dpt = key[2]
 
+    src = key[0]  # Source IP
+    dst = key[1]  # Destination IP
+    dpt = key[2]  # Destination Port
+
+    # Return if the sample size is too small
     if len(TIME_DICT[key]) < 10:
         return None
 
+    # Sort the list of timestamps for this connection
     ts = sorted(TIME_DICT[key])
     
+    # Make sure the last timestep is greater than the first
     if 0 < (ts[-1] - ts[0]):
+
+        # Change the timestamp from seconds since the epoch to seconds since timestamp_0
         for idx in range(1, len(ts)):
             ts[idx] = ts[idx] - ts[0]
-
         ts[0] = 0
        
+        # Create an array of seconds from 0 to the greatest timestep
         n = scipy.zeros(ts[-1])
-    
+        # For each timestamp, increment the count for that particular time in 
+        # the n array
         for time_idx in ts:
             n[time_idx-1] = n[time_idx-1] + 1
 
         sample_sz = len(n)
-        
+ 
+        # Create a range of numbers, 0 to the length of n       
         k = scipy.arange(sample_sz)
-        freq = k/float(sample_sz)    
+
+        # Create a list of frequencies by dividing each element in k
+        # by the length of k... ie k=1 -> freq=1/60
+        freq = k/float(sample_sz)
+
+        # Only look at the first half of the frequency range    
         freq = freq[:sample_sz//2]
         
-        # Run Fast Fourier Transform on sample            
+        # Run Fast Fourier Transform on sample
+        # Only look at positive frequencies from 0 to half the sample size            
         Y = abs(np.fft.rfft(n)/sample_sz)
         Y = Y[:sample_sz//2]
             
+        # Get rid of high frequencies...
         zero_len = min([len(Y), 10])
-        
         for idx in range(zero_len):
             Y[idx] = 0
         
         mar_vals = ()
 
         for mar_name, min_hz, max_hz in MAR_NAMES_LIST:
+
             if len(Y) <= 1:
                 return None
+
+            # Determine range of frequencies to examine
             curr_min_range = int( (len(Y) / 0.5) * min_hz + 0.5)
             curr_max_range = int( (len(Y) / 0.5) * max_hz + 0.5)
-            
             tmp_Y = Y[curr_min_range:curr_max_range]
 
             if len(tmp_Y) <= 1:
                 return None
         
+            # Determine average and max value for frequencies in
+            # the desired range
             fft_avg = np.mean(tmp_Y)
             y_max = np.amax(tmp_Y)
 
             if fft_avg <= 0:
                 return None
 
+            # Save max/average for the frequency range
             max_avg_ratio = y_max / fft_avg
             mar_vals += (max_avg_ratio,)
 
@@ -190,7 +253,7 @@ def write_data(data, customer, proto, result_type):
     # write entry to elasticsearch
     ht_data.write_data(entry, customer, result_type, refresh_index = True)
 
-def analyze_fft_data(customer, proto, result_type):
+def analyze_fft_data(customer, proto, threshold_likely, threshold_unlikely, result_type):
     # print "IM IN THIS FUNCTION Yaaayyy"
 
     # Yaaayyy, colors
@@ -249,8 +312,7 @@ def analyze_fft_data(customer, proto, result_type):
                     dpt = i['fields'][DESTINATION_PORT]
                     float_mar = float(i['fields'][mar_name][0])
 
-                except Exception, err:
-                    print("Error 253: ", err)
+                except:
                     error_count += 1
                     continue
 
@@ -267,16 +329,13 @@ def analyze_fft_data(customer, proto, result_type):
         if error_count > 0:
             print (colors.bcolors.WARNING + '[!] ' + str(error_count) + ' results entries with misnamed or missing field values skipped!'+ colors.bcolors.ENDC)
 
-        # Calculate threshhold for likely beacons
-        thresh = 40
-        thresh_unlikely = 20
 
         # Scroll through results and label beacons as likely or unlikely
         for res in results:
-            if thresh <= res[4]:
+            if threshold_likely <= res[4]:
                 write_data(res, customer, proto, 'likely_beacons')
 
-            elif res[4] <= thresh_unlikely:
+            elif res[4] <= threshold_unlikely:
                 write_data(res, customer, proto, 'unlikely_beacons')
 
         # increment mar index
@@ -321,25 +380,12 @@ def get_datetimes(src, dst, dpt, customer, proto):
 
     return sorted(times)
 
-def find_beacons_graph(customer, proto, result_type_target, result_type_category):
-
-    print(colors.bcolors.OKBLUE + '[-] Graphing potential beacons customer '
-         + colors.bcolors.HEADER + customer
-         + colors.bcolors.OKBLUE + ' with beaconing logs under result name '
-         + colors.bcolors.HEADER + result_type_target
-         + colors.bcolors.OKBLUE + ' of type '
-         + colors.bcolors.HEADER + result_type_category
-         + colors.bcolors.OKBLUE + ' with protocol '
-         + colors.bcolors.HEADER + proto  
-         + colors.bcolors.OKBLUE + '[-]' + colors.bcolors.ENDC)
+def find_beacons_graph(customer, proto, category, save_dir):
 
     # Make directory to store graphs
-    save_dir = './data/' + str(result_type_category) + '/'
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
-    # Create string to indentify type in image title
-    save_string = str(result_type_category)
 
     # searching for beacons in log files, not results
     doc_type = 'results'
@@ -348,7 +394,7 @@ def find_beacons_graph(customer, proto, result_type_target, result_type_category
     fields = [SOURCE_IP, DESTINATION_IP, DESTINATION_PORT, 'min_hz', 'max_hz', TIMESTAMP]
     
     # restrict results to specified customer
-    constraints = [{PROTOCOL:proto}, {'result_type':result_type_category}]
+    constraints = [{PROTOCOL:proto}, {'result_type':category}]
     
     # anything we want to filter out
     ignore = []
@@ -380,8 +426,7 @@ def find_beacons_graph(customer, proto, result_type_target, result_type_category
                 dpt = entry['fields'][DESTINATION_PORT][0]
                 min_hz = entry['fields']['min_hz'][0]
                 max_hz = entry['fields']['max_hz'][0]
-            except Exception, err:
-                print("Error 384: ", err)
+            except:
                 error_count += 1
                 continue
 
@@ -437,7 +482,7 @@ def find_beacons_graph(customer, proto, result_type_target, result_type_category
             
                 #P.setp(patches, 'facecolor', 'g', 'alpha', 0.75)
                 sub_fig.plot(times_6_hours)    
-                sub_fig.set_title(save_string + ' (histogram)--Customer: '
+                sub_fig.set_title(category + ' (histogram)--Customer: '
                                   + customer+ '\nSrc: ' + src + ' Dest: ' + dst
                                   + ' Proto: ' + proto + ' DstPort: ' + dpt)
                 sub_fig.set_xlabel('Time Stamp (UNIT)')
@@ -457,7 +502,7 @@ def find_beacons_graph(customer, proto, result_type_target, result_type_category
                 canvas = FigureCanvas(fig)
                 sub_fig = fig.add_subplot(111)
                 sub_fig.plot(freq, abs(Y), '--')
-                sub_fig.set_title(save_string +' (FFT)--Customer: ' + customer
+                sub_fig.set_title(category +' (FFT)--Customer: ' + customer
                                   + '\nSrc: ' + src + ' Dest: ' + dst
                                   + ' Proto: ' + proto + ' DstPort: ' + dpt)
                 sub_fig.set_xlabel('Freq (HZ)')
@@ -481,23 +526,14 @@ def find_beacons_graph(customer, proto, result_type_target, result_type_category
     print(colors.bcolors.OKGREEN + '[+] Finished generating graphs '
          + '[+]' + colors.bcolors.ENDC)
 
-def run(customer, proto, result_type='beaconing', server="http://localhost:9200/"):
+
+def beacon_analysis(customer, proto, result_type):
 
     global TOTAL_TO_DO
     global CURR_DONE
     global TIME_DICT
-    global ht_data
-
-    ht_data = ESServer([server])
-
     CURR_DONE.value = 0
     worker_pool = Pool(processes=None, maxtasksperchild=1)
-
-    print(colors.bcolors.OKBLUE + '[-] Checking potential beacons for customer '
-          + colors.bcolors.HEADER + customer 
-          + colors.bcolors.OKBLUE + ' with protocol '
-          + colors.bcolors.HEADER + proto  
-          + colors.bcolors.OKBLUE + ' [-]')
 
 
     # searching for beacons in log files, not results
@@ -511,9 +547,6 @@ def run(customer, proto, result_type='beaconing', server="http://localhost:9200/
     
     # anything we want to filter out
     ignore = []
-
-    # Get start time
-    time_start = time.time()
 
     scroll_id = ""
     scroll_len = 1000
@@ -546,8 +579,7 @@ def run(customer, proto, result_type='beaconing', server="http://localhost:9200/
                 ts = time.mktime(dt.timetuple())
                 TIME_DICT[key].append(int(ts))
 
-            except Exception, err:
-                print("Error 550: ", err)
+            except:
                 error_count += 1
                 continue
 
@@ -592,18 +624,58 @@ def run(customer, proto, result_type='beaconing', server="http://localhost:9200/
     if error_count > 0:
         print (colors.bcolors.WARNING + '[!] ' + str(error_count) + ' log entries with misnamed or missing field values skipped!'+ colors.bcolors.ENDC)
 
-    # finish timing how long this whole business took to run
+
+    
+
+def run(customer, proto, threshold_likely, threshold_unlikely, graph_likely, graph_unlikely, potential_save_dir, unlikely_save_dir, result_type, server):
+    global ht_data
+    ht_data = ESServer(server)
+
+    print(colors.bcolors.OKBLUE + '[-] Checking potential beacons for customer '
+          + colors.bcolors.HEADER + customer 
+          + colors.bcolors.OKBLUE + ' with protocol '
+          + colors.bcolors.HEADER + proto  
+          + colors.bcolors.OKBLUE + ' [-]')
+
+    # Get start time
+    time_start = time.time()
+
+    beacon_analysis(customer, proto, result_type)
+
+    analyze_fft_data(customer, proto, threshold_likely, threshold_unlikely, result_type)
+
+    if graph_likely:
+        category = 'likely_beacons'
+        print(colors.bcolors.OKBLUE + '[-] Graphing potential beacons customer '
+         + colors.bcolors.HEADER + customer
+         + colors.bcolors.OKBLUE + ' with beaconing logs under result name '
+         + colors.bcolors.HEADER + result_type
+         + colors.bcolors.OKBLUE + ' of type '
+         + colors.bcolors.HEADER + category
+         + colors.bcolors.OKBLUE + ' with protocol '
+         + colors.bcolors.HEADER + proto  
+         + colors.bcolors.OKBLUE + '[-]' + colors.bcolors.ENDC)
+        find_beacons_graph(customer, proto, category, potential_save_dir)
+    if graph_unlikely:
+        category = 'unlikely_beacons'
+        print(colors.bcolors.OKBLUE + '[-] Graphing potential beacons customer '
+         + colors.bcolors.HEADER + customer
+         + colors.bcolors.OKBLUE + ' with beaconing logs under result name '
+         + colors.bcolors.HEADER + result_type
+         + colors.bcolors.OKBLUE + ' of type '
+         + colors.bcolors.HEADER + category
+         + colors.bcolors.OKBLUE + ' with protocol '
+         + colors.bcolors.HEADER + proto  
+         + colors.bcolors.OKBLUE + '[-]' + colors.bcolors.ENDC)
+        find_beacons_graph(customer, proto, category, unlikely_save_dir)
+
     time_end = time.time()
     time_elapsed = time_end - time_start
 
-    print(colors.bcolors.OKGREEN + '[+] Finished finding potential beacons for customer '
+    print(colors.bcolors.OKGREEN + '[+] Finished checking potential beacons for '
           + colors.bcolors.HEADER + customer 
           + colors.bcolors.OKGREEN + ' with protocol '
           + colors.bcolors.HEADER + proto  
           + colors.bcolors.OKGREEN + ' [+]')
 
-    print(colors.bcolors.OKGREEN + '[*] Time for FFT analysis: ' + str(("%.1f") % time_elapsed) + ' seconds [*]' 
-          + colors.bcolors.ENDC)
-
-    analyze_fft_data(customer, proto, result_type)
-
+    print(colors.bcolors.OKGREEN + '[+] Time for scan analysis: ' + str(time_elapsed) + ' [+]' + colors.bcolors.ENDC)
