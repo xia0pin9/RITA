@@ -31,7 +31,7 @@ Then navigate to `http://localhost:5000` to use the interface.
 
 #### Some things to keep in mind
 
-When you choose a customer name you must choose and *ALL LOWER CASE* customer name, otherwise elasticsearch will stop working. 
+When you choose a customer name you must choose and *ALL LOWER CASE* customer name, otherwise Elasticsearch will stop working. This is due to the fact that the customer name field is being used as an index to Elasticsearch which has a REST style interface, and therefore refuses to load URL strings which wil have caps in them.
 
 There is a specific way that data must be parsed into elasticsearch, look at app/analysis/field_names.py for the specific field names that the data must be mapped to.
 
