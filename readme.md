@@ -5,7 +5,7 @@
 
 RITA is a toolkit which is intended to help approach the often overwhelming task of combing through piles of log data looking for suspect behavior.
 
-RITA is built on the concept of assuming a breach has already happened and then looking for the evidence of that breach in the logs. The framework was instructed by it's engineers experience in penetration testing with the question of how they'd catch themselves, thus the analysis tends to looks specifically at the indicators their tools tend to leave behind.
+RITA is inteded to help in the search for indicators of compromise in enterprise networks of varying size. The framework was instructed by it's engineers experience in penetration testing with the question of how they'd catch themselves, thus the analysis tends to looks specifically at the indicators their tools tend to leave behind.
 
 
 ## Running the tools
@@ -13,7 +13,10 @@ RITA was developed under Debian based Linux operating systems, and has not yet b
 
 #### On Debian based distrobutions start by installing at least these dependancies the command:
 
-You will also need to install a full ELK stack. Elasticsearch, Logstash, and Kibana can be found 
+You will also need to install a full ELK stack. There's an excellent guide to installing Elasticsearch, Logstash, and Kibana over at [DigitalOcean](https://www.digitalocean.com/community/tutorials/how-to-install-elasticsearch-logstash-and-kibana-4-on-ubuntu-14-04).
+
+There's also a sizeable pile of system dependencies that help do math and parse logs:
+
 `sudo apt-get install build-essential python-dev python-pip libatlas-dev libatlas3-base liblapack-dev gfortran libpng12-dev libfreetype6-dev libblas-dev liblapack.dev gfortran`
 
 Also, you'll need a number of python specific dependencies.
