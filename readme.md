@@ -9,7 +9,7 @@ RITA is inteded to help in the search for indicators of compromise in enterprise
 
 
 ## Running the tools
-RITA was developed under Debian based Linux operating systems, and has not yet been tested anywhere else. Anyone who is interested in running it under other conditions is encouraged to contact the development team at dev-hunt@gmail.com.
+RITA was developed under Debian based Linux operating systems, and has not yet been tested anywhere else. Anyone who is interested in running it under other conditions is encouraged to contact the development team at dev-hunt@blackhillsinfosec.com.
 
 #### On Debian based distrobutions start by installing at least these dependancies the command:
 
