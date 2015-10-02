@@ -17,11 +17,11 @@ You will also need to install a full ELK stack. There's an excellent guide to in
 
 There's also a sizeable pile of system dependencies that help do math and parse logs:
 
-`sudo apt-get install build-essential python-dev python-pip libatlas-dev libatlas3-base liblapack-dev gfortran libpng12-dev libfreetype6-dev libblas-dev liblapack.dev gfortran`
+`sudo apt-get install build-essential python-dev python-pip libatlas-dev libatlas3-base liblapack-dev gfortran libpng12-dev libfreetype6-dev libblas-dev liblapack.dev gfortran python-numpy python-scipy python-matplotlib ipython ipython-notebook python-pandas python-sympy python-nose`
 
 Also, you'll need a number of python specific dependencies.
 
-`pip install < requirements.txt`
+`sudo pip install -r requirements.txt`
 
 Start up the flask server.
 
