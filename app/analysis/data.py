@@ -73,3 +73,32 @@ class ESServer(object):
 			self.es.index(index = customer, doc_type="results", body=data, refresh = refresh_index )
 		except:
 			print "Error writing to elasticsearch"
+
+	def delete_results(self, customer, result_type):
+		fields = []
+
+		# restrict results to specified customer
+		constraints = [{'result_type':result_type}]
+		
+		# anything we want to filter out
+		ignore = []
+
+		scroll_id = ""
+		scroll_len = 1000
+
+		scrolling = True
+
+		query = ""
+
+		# Get elasticsearch results sorted by duration time, and keep top percentage as set by THRESHOLD
+		while scrolling:
+			# Retrieve data
+			hits, scroll_id, scroll_size = self.get_data(customer,'results',fields, constraints, ignore, scroll_id, scroll_len)
+			
+			for h in hits:
+				query = query + '{ "delete" : { "_index" : "' + customer + '", "_type" : "' + 'results' + '", "_id" : "' + str(h['_id']) + '" } }\n'
+
+			self.es.bulk(query)
+
+			if len(hits) < 1:
+				scrolling = False
