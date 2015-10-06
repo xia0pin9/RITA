@@ -163,7 +163,6 @@ def find_blacklisted_ipvoid(customer, result_type):
         # Retrieve data
         hits, scroll_id, scroll_size = ht_data.get_data(customer, doc_type, fields, constraints, ignore, scroll_id, scroll_len)
         
-        progress_bar(count, scroll_size)
 
         # For every unique destination ip (used as dict key), find make a list of all
         # src ips that connect to it
@@ -185,9 +184,11 @@ def find_blacklisted_ipvoid(customer, result_type):
                             blacklist_dict[dst].append(src)
                     except:
                         continue
-        
+
         if len(hits) < 1:
-          scrolling = False
+            scrolling = False
+        else:
+            progress_bar(count, scroll_size)
 
     # Get total number of keys (unique url lengths)
     total_keys = len(blacklist_dict)

@@ -19,7 +19,7 @@ def progress_bar(done, total):
 	sys.stdout.write(" " * (toolbar_width-dashes + (4-len(num))) + "] " + num + "%")
 	sys.stdout.flush()
 
-	if num == '100.0':
+	if done == total:
 		sys.stdout.write("\n")
 
 	

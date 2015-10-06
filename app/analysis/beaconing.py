@@ -55,7 +55,7 @@ MAR_NAMES_LIST = [  ('MAR_2SEC', 1/60.0, 1/2.0), # frequencies once between 2 se
 MAR_THRESH_LIKELY = 40
 MAR_THRESH_UNLIKELY = 20
 
-BEACON_PROTO = 'tcp'
+BEACON_PROTO = ""
 
 POTENTIAL_SAVE_DIR = '/var/ht/potential_beacon/'
 UNLIKELY_SAVE_DIR = '/var/ht/unlikely_beacon/'
@@ -231,7 +231,10 @@ def write_data(data, customer, proto, result_type):
 
     # format new entry
     entry = {}
-    entry[PROTOCOL]         = proto
+
+    if proto != "":
+        entry[PROTOCOL]     = proto
+
     entry[SOURCE_IP]        = data[0]
     entry[DESTINATION_IP]   = data[1]
     entry[DESTINATION_PORT] = data[2]
@@ -258,17 +261,20 @@ def analyze_fft_data(customer, proto, threshold_likely, threshold_unlikely, resu
 
     # Yaaayyy, colors
     print(colors.bcolors.OKBLUE + '[-] Analyzing FFT Data for customer '
-          + colors.bcolors.HEADER + customer 
-          + colors.bcolors.OKBLUE + ' with protocol '
-          + colors.bcolors.HEADER + proto  
-          + colors.bcolors.OKBLUE + ' [-]'
-          + colors.bcolors.ENDC)
+          + colors.bcolors.HEADER + customer),
+    if proto != "":
+          print(colors.bcolors.OKBLUE + ' with protocol '
+                + colors.bcolors.HEADER + proto),
+    print( colors.bcolors.OKBLUE + ' [-]' + colors.bcolors.ENDC)
 
     # Analysis will be done on results files, not logs
     doc_type = 'results'
 
     # restrict results to specified customer
-    constraints = [{PROTOCOL:proto}, {'result_type':result_type}]
+    if proto != "":
+        constraints = [{PROTOCOL:proto}, {'result_type':result_type}]
+    else:
+        constraints = [{'result_type':result_type}]
     
     # anything we want to filter out
     ignore = []
@@ -352,8 +358,11 @@ def get_datetimes(src, dst, dpt, customer, proto):
     fields = [TIMESTAMP]
     
     # restrict results
-    constraints = [{PROTOCOL:proto}, {SOURCE_IP:src}, {DESTINATION_IP:dst}, {DESTINATION_PORT:dpt}]
-    
+    if proto != "":
+        constraints = [{PROTOCOL:proto}, {SOURCE_IP:src}, {DESTINATION_IP:dst}, {DESTINATION_PORT:dpt}]
+    else:
+        constraints = [{SOURCE_IP:src}, {DESTINATION_IP:dst}, {DESTINATION_PORT:dpt}]
+
     # anything we want to filter out
     ignore = []
 
@@ -394,7 +403,12 @@ def find_beacons_graph(customer, proto, category, save_dir):
     fields = [SOURCE_IP, DESTINATION_IP, DESTINATION_PORT, 'min_hz', 'max_hz', TIMESTAMP]
     
     # restrict results to specified customer
-    constraints = [{PROTOCOL:proto}, {'result_type':category}]
+    if proto != "":
+        constraints = [{PROTOCOL:proto}, {'result_type':category}]
+        proto_temp = proto
+    else:
+        constraints = [{'result_type':category}]
+        proto_temp = "All Protocols"
     
     # anything we want to filter out
     ignore = []
@@ -484,7 +498,7 @@ def find_beacons_graph(customer, proto, category, save_dir):
                 sub_fig.plot(times_6_hours)    
                 sub_fig.set_title(category + ' (histogram)--Customer: '
                                   + customer+ '\nSrc: ' + src + ' Dest: ' + dst
-                                  + ' Proto: ' + proto + ' DstPort: ' + dpt)
+                                  + ' Proto: ' + proto_temp + ' DstPort: ' + dpt)
                 sub_fig.set_xlabel('Time Stamp (UNIT)')
                 sub_fig.set_ylabel('Connection Attempts')
                 P.gca().set_ylim(ymax=10)
@@ -492,7 +506,7 @@ def find_beacons_graph(customer, proto, category, save_dir):
                 
                 canvas.print_figure(save_dir + 'Src-'
                                     + src.replace('.', '_') + '_Dst-'
-                                    + dst.replace('.', '_') + '_' + proto
+                                    + dst.replace('.', '_') + '_' + proto_temp
                                     + '_' + dpt + '_' + customer + '_histb.png')
                 P.close(fig)
 
@@ -542,8 +556,11 @@ def beacon_analysis(customer, proto, result_type):
     # fields to return from elasticsearch query
     fields = [SOURCE_IP, DESTINATION_IP, DESTINATION_PORT, PROTOCOL, TIMESTAMP]
     
-    # restrict results to specified customer
-    constraints = [{PROTOCOL:proto}]
+    if proto != "":
+        # restrict results to specified customer
+        constraints = [{PROTOCOL:proto}]
+    else:
+        constraints = []
     
     # anything we want to filter out
     ignore = []
@@ -553,8 +570,7 @@ def beacon_analysis(customer, proto, result_type):
 
     scrolling = True
 
-    print('>>> Retrieving information from elasticsearch...')
-    print('>>> Building dictionary...')
+    print(colors.bcolors.OKBLUE + '>>> Retrieving information from elasticsearch and building a dictionary... ')
 
     # start index for progress bar
     count = 0
@@ -632,10 +648,11 @@ def run(customer, proto, threshold_likely, threshold_unlikely, graph_likely, gra
     ht_data = ESServer(server)
 
     print(colors.bcolors.OKBLUE + '[-] Checking potential beacons for customer '
-          + colors.bcolors.HEADER + customer 
-          + colors.bcolors.OKBLUE + ' with protocol '
-          + colors.bcolors.HEADER + proto  
-          + colors.bcolors.OKBLUE + ' [-]')
+          + colors.bcolors.HEADER + customer),
+    if proto != "":
+        print(colors.bcolors.OKBLUE + ' with protocol '
+              + colors.bcolors.HEADER + proto ),
+    print(colors.bcolors.OKBLUE + '[-]' + colors.bcolors.ENDC)
 
     # Get start time
     time_start = time.time()
@@ -651,11 +668,13 @@ def run(customer, proto, threshold_likely, threshold_unlikely, graph_likely, gra
          + colors.bcolors.OKBLUE + ' with beaconing logs under result name '
          + colors.bcolors.HEADER + result_type
          + colors.bcolors.OKBLUE + ' of type '
-         + colors.bcolors.HEADER + category
-         + colors.bcolors.OKBLUE + ' with protocol '
-         + colors.bcolors.HEADER + proto  
-         + colors.bcolors.OKBLUE + '[-]' + colors.bcolors.ENDC)
+         + colors.bcolors.HEADER + category),
+        if proto != "":
+            print(colors.bcolors.OKBLUE + ' with protocol '
+                  + colors.bcolors.HEADER + proto ),
+        print(colors.bcolors.OKBLUE + '[-]' + colors.bcolors.ENDC)
         find_beacons_graph(customer, proto, category, potential_save_dir)
+
     if graph_unlikely:
         category = 'unlikely_beacons'
         print(colors.bcolors.OKBLUE + '[-] Graphing potential beacons customer '
@@ -663,19 +682,21 @@ def run(customer, proto, threshold_likely, threshold_unlikely, graph_likely, gra
          + colors.bcolors.OKBLUE + ' with beaconing logs under result name '
          + colors.bcolors.HEADER + result_type
          + colors.bcolors.OKBLUE + ' of type '
-         + colors.bcolors.HEADER + category
-         + colors.bcolors.OKBLUE + ' with protocol '
-         + colors.bcolors.HEADER + proto  
-         + colors.bcolors.OKBLUE + '[-]' + colors.bcolors.ENDC)
+         + colors.bcolors.HEADER + category),
+        if proto != "":
+            print(colors.bcolors.OKBLUE + ' with protocol '
+                  + colors.bcolors.HEADER + proto ),
+        print(colors.bcolors.OKBLUE + '[-]' + colors.bcolors.ENDC)
         find_beacons_graph(customer, proto, category, unlikely_save_dir)
 
     time_end = time.time()
     time_elapsed = time_end - time_start
 
     print(colors.bcolors.OKGREEN + '[+] Finished checking potential beacons for '
-          + colors.bcolors.HEADER + customer 
-          + colors.bcolors.OKGREEN + ' with protocol '
-          + colors.bcolors.HEADER + proto  
-          + colors.bcolors.OKGREEN + ' [+]')
+          + colors.bcolors.HEADER + customer),
+    if proto != "":
+        print(colors.bcolors.OKBLUE + ' with protocol '
+              + colors.bcolors.HEADER + proto ),
+    print(colors.bcolors.OKGREEN + '[+]' + colors.bcolors.ENDC)
 
     print(colors.bcolors.OKGREEN + '[+] Time for scan analysis: ' + str(time_elapsed) + ' [+]' + colors.bcolors.ENDC)
