@@ -37,10 +37,10 @@ DESC = 'Find Machines Exhibiting Scanning Behavior'
 SCAN_THRESH = 50
 
 # Default save directory for generated graphs
-POTENTIAL_SCAN_SAVE_DIR = '/var/ht/potential_scan/'
+POTENTIAL_SCAN_SAVE_DIR = '../graphs/potential_scan/'
 
 # Default protocol
-SCAN_PROTO = "tcp"
+SCAN_PROTO = ""
 
 OPTS = {
         "customer": {
@@ -93,7 +93,11 @@ class ScanModule(Module):
 def write_data(src, dst, proto, customer, result_type):
     # format new entry
     entry = {}
-    entry[PROTOCOL]        = proto
+
+    # Check if user opted to restrict by protocol
+    if proto != "":
+        entry[PROTOCOL]        = proto
+
     entry[SOURCE_IP]       = src
     entry[DESTINATION_IP]  = dst
     
@@ -111,7 +115,7 @@ def scan_analysis(customer, proto, threshold, graph, potential_save_dir, result_
     fields = [SOURCE_IP, DESTINATION_IP, DESTINATION_PORT]
     
     # restrict results to specified customer      
-    if proto != None and proto != 'web':
+    if proto != "" and proto != 'web':
         constraints = [{PROTOCOL:proto}]
     else:
         constraints = []
@@ -175,12 +179,10 @@ def scan_analysis(customer, proto, threshold, graph, potential_save_dir, result_
 
         # Iterate over all the keys...
         for key in scan_dict:
+            key_count += 1
 
             if (key_count % 10 == 0) or (key_count == total_keys):
                 progress_bar(key_count, total_keys)
-
-
-            key_count += 1
 
             # Extract values from key string
             src = key[0]
@@ -210,13 +212,18 @@ def graph_scans(customer, src, dst, proto, ports, threshold, potential_save_dir)
     if not os.path.exists(potential_save_dir):
         os.makedirs(potential_save_dir)
 
+    if proto != "":
+        proto_temp = proto
+    else:
+        proto_temp = "All Protocols"
+
     # Create histogram, with port numbers as the "bins" and connection
     # attempts per port as the "counts" in the bins
     n, bins, patches = P.hist(ports, bins=65535, histtype='step',
                               normed=False)
     P.gca().set_ylim(ymax=10)
     P.title('Potential Scan (Histogram) for src: ' + str(src) + 
-        ', dst: ' + dst + ', protocol: ' + proto + ', threshold: ' + threshold)
+        ', dst: ' + dst + ', protocol: ' + proto_temp + ', threshold: ' + threshold)
     P.xlabel('Port Numbers')
     P.ylabel('Connection Attempts')
     P.savefig(potential_save_dir + 'src_' + src.replace('.','_') + '__' + 'dst_' + dst.replace('.','_') + '.png')
@@ -227,10 +234,11 @@ def run(customer, proto, threshold, graph, potential_save_dir, result_type, serv
     global ht_data
     ht_data = ESServer(server)
     print(colors.bcolors.OKBLUE + '[-] Checking potential port scans for '
-          + colors.bcolors.HEADER + customer 
-          + colors.bcolors.OKBLUE + ' with protocol '
-          + colors.bcolors.HEADER + proto  
-          + colors.bcolors.OKBLUE + ' [-]')
+          + colors.bcolors.HEADER + customer),
+    if proto != "":
+        print(colors.bcolors.OKBLUE + ' with protocol '
+              + colors.bcolors.HEADER + proto ),
+    print(colors.bcolors.OKBLUE + '[-]' + colors.bcolors.ENDC)
 
     # Get start time
     time_start = time.time()
@@ -240,11 +248,17 @@ def run(customer, proto, threshold, graph, potential_save_dir, result_type, serv
     time_end = time.time()
     time_elapsed = time_end - time_start
 
+    # Report number of potential scans found
+    hits, scroll_id, scroll_size = ht_data.get_data(customer, 'results', [], [{'result_type':result_type}], [], '', 1000)
+    print(colors.bcolors.FAIL + '[!] Found ' + str(scroll_size) + ' potential port scans [!]'
+          + colors.bcolors.ENDC)
+
     print(colors.bcolors.OKGREEN + '[+] Finished checking potential port scans for '
-          + colors.bcolors.HEADER + customer 
-          + colors.bcolors.OKGREEN + ' with protocol '
-          + colors.bcolors.HEADER + proto  
-          + colors.bcolors.OKGREEN + ' [+]')
+          + colors.bcolors.HEADER + customer),
+    if proto != "":
+        print(colors.bcolors.OKBLUE + ' with protocol '
+              + colors.bcolors.HEADER + proto ),
+    print(colors.bcolors.OKBLUE + '[-]' + colors.bcolors.ENDC)
 
     print(colors.bcolors.OKGREEN + '[+] Time for scan analysis: ' + str(time_elapsed) + ' [+]' + colors.bcolors.ENDC)
 
