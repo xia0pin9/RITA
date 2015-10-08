@@ -14,7 +14,7 @@ class Module(object):
                 self.options[key]["value"] = float(value)
             elif self.options[key]["type"] == "string":
                 self.options[key]["value"] = value
-            elif self.options[key]["value"] == "bool":
+            elif self.options[key]["type"] == "bool":
                 if value == "True" or value == "true" or value == True:
                     self.options[key]["value"] = True;
                 else:

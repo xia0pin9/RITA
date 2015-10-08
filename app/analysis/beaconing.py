@@ -71,7 +71,7 @@ OPTS = {
             },
         "graph_likely": {
             "type": "bool",
-            "value": False
+            "value": True
             },
         "graph_unlikely": {
             "type": "bool",

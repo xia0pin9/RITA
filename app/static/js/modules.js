@@ -73,11 +73,18 @@ var OptionListView = Backbone.View.extend({
 *************************************/
 var ModuleOptionView = Backbone.View.extend({  
   render: function() {
-    var type = (this.model.get('type'))
+    var type = (this.model.get('type'));
     var appStr = "";
     //use option type to determine input type and format label placement
     if (type === "bool")
-      appStr += "<div class='option-div'><label class='label-option'>"+this.model.get('name')+"</label>  <input class='boolInput input-option' id='"+this.id+"' type='checkbox' name='"+this.model.get('name')+"' checked='"+this.model.get('value')+"' onchange='moduleOptionChanged(this.name, this.checked, this.id)'/></div>";
+    {
+      var checked = "";
+      if(this.model.get('value') === true)
+      {
+        checked = "checked"
+      }
+      appStr += "<div class='option-div'><label class='label-option'>"+this.model.get('name')+"</label>  <input class='boolInput input-option' id='"+this.id+"' type='checkbox' name='"+this.model.get('name')+ "' " + checked + " onchange='moduleOptionChanged(this.name, this.checked, this.id)'/></div>";
+    }
     else if (type === "string")
       appStr += "<div class='option-div'><h5 class='label-option'> <label class='label-option'>"+this.model.get('name')+"</label></h5><input class='stringInput input-option' id='"+this.id+"' type='text' name='"+this.model.get('name')+"' value='"+this.model.get('value')+"' onchange='moduleOptionChanged(this.name, this.value, this.id)'/></div>";
     else
