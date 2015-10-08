@@ -225,6 +225,9 @@ def run(customer, result_type, server):
           + colors.bcolors.OKBLUE + ' [-]'
           + colors.bcolors.ENDC)
 
+    # Delete Previous Results
+    ht_data.delete_results(customer, result_type)
+
     find_blacklisted_ipvoid(customer, result_type)
 
     # Report number of connections to blacklisted IPs found

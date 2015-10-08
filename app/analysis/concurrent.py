@@ -169,6 +169,9 @@ def run(customer, result_type, server):
           + colors.bcolors.OKBLUE + ' [-]'
           + colors.bcolors.ENDC)
 
+    # Delete Previous Results
+    ht_data.delete_results(customer, result_type)
+    
     find_concurrent(customer, result_type)
 
     print(colors.bcolors.OKGREEN   + '[+] Finished finding concurrent logins for customer '

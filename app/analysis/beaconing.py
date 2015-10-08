@@ -657,6 +657,11 @@ def run(customer, proto, threshold_likely, threshold_unlikely, graph_likely, gra
     # Get start time
     time_start = time.time()
 
+    # Delete Previous Results
+    ht_data.delete_results(customer, result_type)
+    ht_data.delete_results(customer, 'likely_beacons')
+    ht_data.delete_results(customer, 'unlikely_beacons')
+
     beacon_analysis(customer, proto, result_type)
 
     analyze_fft_data(customer, proto, threshold_likely, threshold_unlikely, result_type)

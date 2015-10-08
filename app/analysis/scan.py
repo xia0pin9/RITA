@@ -243,6 +243,9 @@ def run(customer, proto, threshold, graph, potential_save_dir, result_type, serv
     # Get start time
     time_start = time.time()
 
+    # Delete Previous Results
+    ht_data.delete_results(customer, result_type)
+
     scan_analysis(customer, proto, threshold, graph, potential_save_dir, result_type)
 
     time_end = time.time()

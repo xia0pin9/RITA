@@ -131,6 +131,9 @@ def run(customer, threshold, result_type, server="http://localhost:5000/"):
           + colors.bcolors.OKBLUE + ' [-]'
           + colors.bcolors.ENDC)
 
+    # Delete Previous Results
+    ht_data.delete_results(customer, result_type)
+    
     find_long_durations(customer, threshold, result_type)
 
     print(colors.bcolors.OKGREEN + '[+] Finished checking long connections for customer ' 

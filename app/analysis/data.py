@@ -98,7 +98,10 @@ class ESServer(object):
 			for h in hits:
 				query = query + '{ "delete" : { "_index" : "' + customer + '", "_type" : "' + 'results' + '", "_id" : "' + str(h['_id']) + '" } }\n'
 
-			self.es.bulk(query)
+			try:
+				self.es.bulk(query)
+			except:
+				break
 
 			if len(hits) < 1:
 				scrolling = False
