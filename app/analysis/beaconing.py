@@ -506,8 +506,11 @@ def find_beacons_graph(customer, proto, category, save_dir):
                 
                 canvas.print_figure(save_dir + 'Src-'
                                     + src.replace('.', '_') + '_Dst-'
-                                    + dst.replace('.', '_') + '_' + proto_temp
-                                    + '_' + dpt + '_' + customer + '_histb.png')
+                                    + dst.replace('.', '_') + '_' + proto_temp 
+                                    + '_' + dpt
+                                    + '_minhz-' + min_hz
+                                    + '_maxhz-' + max_hz
+                                    + '_' + customer + '_histb.png')
                 P.close(fig)
 
                 sub_fig.clear()
@@ -523,8 +526,11 @@ def find_beacons_graph(customer, proto, category, save_dir):
                 sub_fig.set_ylabel('|Y(FREQ)|')
                 canvas.print_figure(save_dir + 'Src-'
                                     + src.replace('.', '_') + '_Dst-'
-                                    + dst.replace('.', '_') + '_' + proto + '_'
-                                    + dpt + '_' + customer+ '_fft.png')
+                                    + dst.replace('.', '_') + '_' + proto
+                                    + '_' + dpt
+                                    + '_minhz-' + min_hz
+                                    + '_maxhz-' + max_hz
+                                    + '_' + customer+ '_fft.png')
                 P.close(fig)
 
         
