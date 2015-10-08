@@ -508,8 +508,8 @@ def find_beacons_graph(customer, proto, category, save_dir):
                                     + src.replace('.', '_') + '_Dst-'
                                     + dst.replace('.', '_') + '_' + proto_temp 
                                     + '_' + dpt
-                                    + '_minhz-' + min_hz
-                                    + '_maxhz-' + max_hz
+                                    + '_minhz-' + str(min_hz)
+                                    + '_maxhz-' + str(max_hz)
                                     + '_' + customer + '_histb.png')
                 P.close(fig)
 
@@ -528,8 +528,8 @@ def find_beacons_graph(customer, proto, category, save_dir):
                                     + src.replace('.', '_') + '_Dst-'
                                     + dst.replace('.', '_') + '_' + proto
                                     + '_' + dpt
-                                    + '_minhz-' + min_hz
-                                    + '_maxhz-' + max_hz
+                                    + '_minhz-' + str(min_hz)
+                                    + '_maxhz-' + str(max_hz)
                                     + '_' + customer+ '_fft.png')
                 P.close(fig)
 
