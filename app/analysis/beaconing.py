@@ -58,7 +58,7 @@ MAR_THRESH_UNLIKELY = 20
 BEACON_PROTO = ""
 
 POTENTIAL_SAVE_DIR = '/var/ht/potential_beacon/'
-UNLIKELY_SAVE_DIR = '/var/ht/unlikely_beacon/'
+UNLIKELY_SAVE_DIR = ''
 
 OPTS = {
         "customer": {
