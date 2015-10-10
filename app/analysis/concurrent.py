@@ -94,10 +94,6 @@ def find_concurrent(customer, result_type):
     while scrolling:
         # Retrieve data
         hits, scroll_id, scroll_size = ht_data.get_data(customer, doc_type, fields, constraints, ignore, scroll_id, scroll_len, sort)
-   
-        # Report progress
-        if (count % 10 == 0) or (count == scroll_size):
-            progress_bar(count, scroll_size)
 
         # For every unique username (used as dict key), make a dictionary of event activity
         for entry in hits:
@@ -141,6 +137,11 @@ def find_concurrent(customer, result_type):
         # stop scrolling if no more hits
         if len(hits) < 1:
           scrolling = False
+        else:
+            count += len(hits)
+            # Report progress
+            if (count % 10 == 0) or (count == scroll_size):
+                progress_bar(count, scroll_size)
 
     if not (len(concurrent_dict) == 0):
         num_found = 0
