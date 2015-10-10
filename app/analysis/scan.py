@@ -104,7 +104,7 @@ def write_data(src, dst, proto, customer, result_type):
     entry['@timestamp'] = datetime.datetime.now()
     
     # write entry to elasticsearch
-    ht_data.write_data(entry, customer, result_type)
+    ht_data.write_data(entry, customer, result_type, True)
 
 
 def scan_analysis(customer, proto, threshold, graph, potential_save_dir, result_type):
@@ -223,7 +223,7 @@ def graph_scans(customer, src, dst, proto, ports, threshold, potential_save_dir)
                               normed=False)
     P.gca().set_ylim(ymax=10)
     P.title('Potential Scan (Histogram) for src: ' + str(src) + 
-        ', dst: ' + dst + ', protocol: ' + proto_temp + ', threshold: ' + threshold)
+        ', dst: ' + dst + ', protocol: ' + proto_temp + ', threshold: ' + str(threshold))
     P.xlabel('Port Numbers')
     P.ylabel('Connection Attempts')
     P.savefig(potential_save_dir + 'src_' + src.replace('.','_') + '__' + 'dst_' + dst.replace('.','_') + '.png')
