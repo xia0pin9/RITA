@@ -11,7 +11,7 @@ def progress_bar(done, total):
 
 	sys.stdout.write("[")
 	dashes = int(float(done)/total*toolbar_width)
-	for i in xrange(dashes):
+	for i in range(dashes):
 	    # update the bar
 	    sys.stdout.write("-")
 
