@@ -67,7 +67,7 @@ class ESServer(object):
 	def write_data( self, data, customer, result_type, refresh_index = False):
 		# Label results with type of analysis performed
 		data['result_type'] = result_type
-
+		
 		# Write results to elasticsearch
 		try:
 			self.es.index(index = customer, doc_type="results", body=data, refresh = refresh_index )

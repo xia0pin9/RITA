@@ -17,12 +17,9 @@ from module import Module
 ##########################################
 #              MODULE SETUP              #    
 ##########################################
-NAME = "concurrent"
-DESC = "Look for multiptle concurrent logins"
-
-LOG_ON   = '4624'  # logged on successfully
-LOG_OFF  = '4634'  # logged off successfully
-LOG_OFF2 = '4647'  # user-initiated logoff
+NAME = "cross-analysis"
+DESC = "Look for machines that were flagged for exhibiting multiple indicators of compromise"
+CROSSREF_BEHAVIORS = ['likely_beacons','dns','concurrent', 'blacklisted','urls', 'scanning', 'useragent']
 
 OPTS = {
         "customer": {
@@ -31,7 +28,7 @@ OPTS = {
             },
         "result_type": {
             "type": "string",
-            "value": "concurrent"
+            "value": "cross_analysis"
             },
         "server": {
             "value": "http://localhost:9200",
@@ -39,9 +36,9 @@ OPTS = {
             }
         }
 
-class ConcurrentModule(Module):
+class CrossrefModule(Module):
     def __init__(self):
-        super(ConcurrentModule, self).__init__(NAME, DESC, OPTS)
+        super(CrossrefModule, self).__init__(NAME, DESC, OPTS)
 
     def RunModule(self):
         run(self.options["customer"]["value"],
@@ -51,26 +48,23 @@ class ConcurrentModule(Module):
 #           END MODULE SETUP             #    
 ##########################################
 
-def write_data(user, data, customer, result_type):
+def write_data(src, data, customer, result_type):
     # format new entry
-
-    max_concurrent = int(data['max_concurrent'])
     entry = {}
-    entry[USER_NAME]     = user
-    entry['max_concurrent_logons'] = max_concurrent
-    entry[SOURCE_IP]     = data['src_list']  
-    entry[TIMESTAMP]     = datetime.datetime.now()
+    entry[SOURCE_IP]   = src
+    entry['count']     = len(data)
+    entry['behaviors'] = data
+    entry[TIMESTAMP]   = datetime.datetime.now()
     
-    # print entry
     # write entry to elasticsearch
     ht_data.write_data(entry, customer, result_type)
 
-def find_concurrent(customer, result_type):
+def find_cross_analysis(customer, result_type):
     # Search will be conducted in log files
-    doc_type = 'logs'
+    doc_type = 'results'
 
     # fields to return from elasticsearch query
-    fields = [EVENT_ID, USER_NAME, SOURCE_IP, TIMESTAMP]
+    fields = [SOURCE_IP, 'result_type']
     
     # restrict results to specified customer and eventId to list of possible IDs
     constraints = []
@@ -78,11 +72,10 @@ def find_concurrent(customer, result_type):
     # anything we want to filter out
     ignore = []
 
-    # Sort results by timestamp
-    sort = TIMESTAMP + ':asc'
+    sort = ""
 
     # create dictionary to store user login info
-    concurrent_dict = defaultdict(dict)
+    crossref_dict = defaultdict(dict)
 
     scroll_id = ""
 
@@ -102,46 +95,23 @@ def find_concurrent(customer, result_type):
         # For every unique username (used as dict key), make a dictionary of event activity
         for entry in hits:
             try:
-                user  =  entry['fields'][USER_NAME][0]
-                event = entry['fields'][EVENT_ID][0]                
+                src_list = entry['fields'][SOURCE_IP]
+                behavior = entry['fields']['result_type'][0]
+
+                if behavior not in CROSSREF_BEHAVIORS:
+                    continue              
             except:
                 error_count += 1
                 continue
 
-            
-            # If user name has not been added to dictionary, add set login counts to 0
-            if user not in concurrent_dict:
-                concurrent_dict[user]['logged_on'] = False
-                concurrent_dict[user]['concurrent'] = 0
-                concurrent_dict[user]['max_concurrent'] = 0
-                concurrent_dict[user]['src_list'] = []
-            
-            try:
-            	src  = entry['fields'][SOURCE_IP][0]
-            except:
-            	src = None
+            for src in src_list:
+                # If src has not been added to dictionary, add it
+                if src not in crossref_dict:
+                    crossref_dict[src] = []
 
-            # Add only unique source ips
-            if src not in concurrent_dict[user]['src_list']:
-                concurrent_dict[user]['src_list'].append(src)
+                if behavior not in crossref_dict[src]:
+                    crossref_dict[src].append(behavior)
             
-            # If event id indicates a logon mark the user as such, and add to the concurrent count if
-            # the user is already logged on
-            if event == LOG_ON:
-                if concurrent_dict[user]['logged_on'] == True:
-                    concurrent_dict[user]['concurrent'] += 1
-                    if concurrent_dict[user]['max_concurrent'] < concurrent_dict[user]['concurrent']:
-                        concurrent_dict[user]['max_concurrent'] = concurrent_dict[user]['concurrent']
-                else:
-                    concurrent_dict[user]['logged_on'] = True
-
-            # If the even id indicates a logoff reduce the concurrent count and, if the concurrent count is 
-            # now zero, mark the user as logged off
-            elif (event == LOG_OFF) or (event == LOG_OFF2):
-                if 0 < concurrent_dict[user]['concurrent']:
-                    concurrent_dict[user]['concurrent'] -= 1
-                if concurrent_dict[user]['concurrent'] == 0:
-                    concurrent_dict[user]['logged_on'] = False
 
         # stop scrolling if no more hits
         if len(hits) < 1:
@@ -152,19 +122,24 @@ def find_concurrent(customer, result_type):
             if (count % 10 == 0) or (count == scroll_size):
                 progress_bar(count, scroll_size)
 
-    if not (len(concurrent_dict) == 0):
+    crossref_dict_len = len(crossref_dict)
+    if not (crossref_dict_len == 0):
         num_found = 0
-        print('>>> Checking for concurrent logins and writing results to elasticsearch... '+ colors.bcolors.ENDC)
+        print('>>> Performing cross-analysis and writing results to elasticsearch... '+ colors.bcolors.ENDC)
 
-        # record all users with concurrent logins
-        for user, data in concurrent_dict.iteritems():
-            if data['max_concurrent'] > 0:
+        # Record all src ips with multiple behaviors
+        count = 0
+        for src in sorted(crossref_dict, key=lambda src: len(crossref_dict[src]), reverse=True):
+            # Report progress
+            progress_bar(count, crossref_dict_len)
+            count += 1
+            if len(crossref_dict[src]) > 1:
                 num_found += 1
-                write_data(user, data, customer, result_type)
+                write_data(src, crossref_dict[src], customer, result_type)
 
-        print(colors.bcolors.WARNING + '[+] ' + str(num_found) + ' concurrent logins found! [+]'+ colors.bcolors.ENDC)
+        print(colors.bcolors.WARNING + '[+] ' + str(num_found) + ' source IPs with multiple malicious behaviors found! [+]'+ colors.bcolors.ENDC)
     else:
-        print (colors.bcolors.WARNING + '\nQuerying elasticsearch failed - Verify your log configuration file!'+ colors.bcolors.ENDC)
+        print (colors.bcolors.WARNING + '\nQuerying elasticsearch failed - Verify that you have ran the other modules first!'+ colors.bcolors.ENDC)
 
     if error_count > 0:
         print (colors.bcolors.WARNING + '[!] ' + str(error_count) + ' log entries with misnamed or missing field values skipped! [!]'+ colors.bcolors.ENDC)
@@ -182,9 +157,10 @@ def run(customer, result_type, server):
     # Delete Previous Results
     ht_data.delete_results(customer, result_type)
     
-    find_concurrent(customer, result_type)
+    find_cross_analysis(customer, result_type)
 
     print(colors.bcolors.OKGREEN   + '[+] Finished finding concurrent logins for customer '
           + colors.bcolors.HEADER  + customer
           + colors.bcolors.OKGREEN + ' [+]'
           + colors.bcolors.ENDC)
+
