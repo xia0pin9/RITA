@@ -220,6 +220,13 @@ def tbd_serial(times, bucket_size, thresh):
         else:
             buckets[key] += 1
 
+    # Experimental...
+    try:
+    	del(buckets[0])
+    except:
+    	a = 1
+
+
     if len(buckets.keys()) > 0:
         return np.max(list(buckets.values())), len(buckets)
     else:
@@ -269,14 +276,14 @@ def TBD_analysis(customer, proto, bucket_size, thresh, graph, save_dir, result_t
         for entry in hits:
             count += 1
             
-            # try:
-            src = entry['fields'][SOURCE_IP][0]
-            dst = entry['fields'][DESTINATION_IP][0]
-            dpt = entry['fields'][DESTINATION_PORT][0]
-            ts  = int(time.mktime((dt_parser.parse(entry['fields'][TIMESTAMP][0])).timetuple()))
-            # except:
-            #     error_count += 1
-            #     continue
+            try:
+            	src = entry['fields'][SOURCE_IP][0]
+            	dst = entry['fields'][DESTINATION_IP][0]
+            	dpt = entry['fields'][DESTINATION_PORT][0]
+            	ts  = int(time.mktime((dt_parser.parse(entry['fields'][TIMESTAMP][0])).timetuple()))
+            except:
+                error_count += 1
+                continue
 
             # create dictionary key 
             key =  (src, dst, dpt)
@@ -334,6 +341,8 @@ def TBD_analysis(customer, proto, bucket_size, thresh, graph, save_dir, result_t
                 continue
             common_frequency_dict[key] = common_frequency
             frequency_count_dict[key]  = frequency_count
+
+        print common_frequency_dict
 
 
         # Find the mean and standard deviation for each of the frequency dicts
@@ -397,5 +406,8 @@ def run(customer, proto, bucket_size, thresh, graph, save_dir, result_type, serv
     print(colors.bcolors.OKGREEN + '[*] Time for bucket analysis: ' + str(("%.1f") % time_elapsed) + ' seconds [*]' 
           + colors.bcolors.ENDC)
 
- 
-run('bhis_test', '', 1, 2, False, '', 'test', 'localhost:9200')
+ #-2015.03.29
+run('logstash-ht-2015.03.29', '', 1, 1, False, '', 'test', '192.168.0.14:9200')
+
+# (u'55.66.77.88', u'11.22.33.44', u'9999') 2.30940107635
+# (u'192.168.0.2', u'0.112.41.246', u'37613') 2.30943671773

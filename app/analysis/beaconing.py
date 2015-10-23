@@ -48,12 +48,12 @@ CURR_DONE = Value('i', 0)
 UNLIKELY_CURR = Value('i', 0)
 CURR_DONE_LOCK = Lock()
 
-MAR_NAMES_LIST = [  ('MAR_2SEC', 1/60.0, 1/2.0), # frequencies once between 2 sec and once between 60 sec
-                    ('MAR_60SEC', 0, 1/60.0) ]
+MAR_NAMES_LIST = [('MAR', 0, 1/2.0)] # frequencies once between 2 sec and once between 60 sec
+               
 
 # Default threshold for max average ratio
-MAR_THRESH_LIKELY = 40
-MAR_THRESH_UNLIKELY = 20
+MAR_THRESH_LIKELY = 17
+MAR_THRESH_UNLIKELY = 10
 
 BEACON_PROTO = ""
 
@@ -612,6 +612,7 @@ def beacon_analysis(customer, proto, result_type):
         if count == scroll_size:
             scrolling = False
 
+
     if not (len(TIME_DICT) == 0):
         # parallelize it
         m = Manager()
@@ -638,7 +639,8 @@ def beacon_analysis(customer, proto, result_type):
                 vals = db_queue.get()
                 n_vals = len(list(vals))
             except:
-                break                
+                break            
+
             write_data(vals, customer, proto, result_type)
     else:
         print (colors.bcolors.WARNING + '[!] Querying elasticsearch failed - Verify your log configuration file!'+ colors.bcolors.ENDC)
@@ -647,7 +649,6 @@ def beacon_analysis(customer, proto, result_type):
         print (colors.bcolors.WARNING + '[!] ' + str(error_count) + ' log entries with misnamed or missing field values skipped!'+ colors.bcolors.ENDC)
 
 
-    
 
 def run(customer, proto, threshold_likely, threshold_unlikely, graph_likely, graph_unlikely, potential_save_dir, unlikely_save_dir, result_type, server):
     global ht_data

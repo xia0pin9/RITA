@@ -4,6 +4,7 @@ from scan import ScanModule
 from duration import DurationModule
 from long_urls import LongUrlsModule
 from concurrent import ConcurrentModule
+from cross_analysis import CrossrefModule
 
 def Register():
     res = []
@@ -25,4 +26,8 @@ def Register():
 
     cc = ConcurrentModule()
     res.append(cc)
+
+    crm = CrossrefModule()
+    res.append(crm)
+
     return res

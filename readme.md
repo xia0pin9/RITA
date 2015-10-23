@@ -7,7 +7,6 @@ RITA is a toolkit which is intended to help approach the often overwhelming task
 
 RITA is inteded to help in the search for indicators of compromise in enterprise networks of varying size. The framework was instructed by it's engineers experience in penetration testing with the question of how they'd catch themselves, thus the analysis tends to looks specifically at the indicators their tools tend to leave behind.
 
-
 ## Running the tools
 RITA was developed under Debian based Linux operating systems, and has not yet been tested anywhere else. Anyone who is interested in running it under other conditions is encouraged to contact the development team at dev-hunt@blackhillsinfosec.com.
 
@@ -27,7 +26,11 @@ Start up the flask server.
 
 `python run.py`
 
-Then navigate to `http://localhost:5000` to use the interface. 
+Then navigate to `http://localhost:5000` to use the interface.
+
+## Loading log files into Elasticsearch:
+
+Currently, the RITA framework contains only a simple module for parsing CSV files into Elasticsearch.
 
 #### Some things to keep in mind
 

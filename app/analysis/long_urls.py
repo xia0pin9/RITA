@@ -58,6 +58,7 @@ def write_data(data, customer, result_type):
     entry = {}
     entry[SOURCE_IP]      = data[SOURCE_IP]
     entry[URL]            = data[URL]
+    entry['length']       = len(data[URL][0])
     entry[TIMESTAMP]      = datetime.datetime.now()
 
     # write entry to elasticsearch
