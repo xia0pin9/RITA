@@ -5,12 +5,16 @@ from duration import DurationModule
 from long_urls import LongUrlsModule
 from concurrent import ConcurrentModule
 from cross_analysis import CrossrefModule
+from TBD import TBDModule
 
 def Register():
     res = []
     
     beac = BeaconingModule()
     res.append(beac)
+
+    tbd = TBDModule()
+    res.append(tbd)
 
     blist = BlacklistedModule()
     res.append(blist)
