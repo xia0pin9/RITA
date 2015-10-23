@@ -72,7 +72,7 @@ class ESServer(object):
 		try:
 			self.es.index(index = customer, doc_type="results", body=data, refresh = refresh_index )
 		except:
-			print "Error writing to elasticsearch"
+			print("Error writing to elasticsearch")
 
 	def delete_results(self, customer, result_type):
 		fields = []

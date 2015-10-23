@@ -15,6 +15,8 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 import os
 import time
 import datetime
+from multiprocessing import Process, Pool, Value, Lock, Queue, Manager
+import multiprocessing
 from collections import defaultdict
 import dateutil.parser as dt_parser
 import numpy as np
@@ -35,13 +37,23 @@ from module import Module
 NAME = 'TBD'
 DESC = 'Find some beacons in a cool new way. Maybe.'
 
-TBD_THRESH = 2
-
+##### Fucking Global variables for multiprocessing shit #######
+TOTAL_TO_DO = Value('i', 1)
 TIME_DICT = defaultdict(list)
+CURR_DONE = 0
+UNLIKELY_CURR = 0
+CURR_DONE = Value('i', 0)
+UNLIKELY_CURR = Value('i', 0)
+CURR_DONE_LOCK = Lock()
 
 # Default save directory for generated graphs
 POTENTIAL_TBD_SAVE_DIR = '../graphs/potential_cool_beacon/'
+
+# Time interval for buckets (in seconds)
 DEFAULT_BUCKET_SIZE = 1
+
+# Threshold for difference in standard deviation that determines beaconing
+TBD_THRESH = 2
 
 # Default protocol
 TBD_PROTO = ""
@@ -112,7 +124,7 @@ def write_data(data, customer, proto, result_type):
     # write entry to elasticsearch
     ht_data.write_data(entry, customer, result_type, refresh_index = True)
 
-def buckets_graph(customer, buckets, proto, src, dst, dpt):
+def tbd_graph(customer, buckets, proto, src, dst, dpt):
 
     # Make directory to store graphs
     save_dir = './data/' + customer + "/buckets/"
@@ -134,74 +146,47 @@ def buckets_graph(customer, buckets, proto, src, dst, dpt):
     P.close(fig)
 
     
-# def create_buckets_mp(arglist):
-#     global MIN_TIMESTAMPS
-#     global CURR_DONE
-#     global UNLIKELY_CURR
-#     global TOTAL_TO_DO
-#     global TIME_DICT
-#     global CURR_DONE_LOCK
+# def tbd_serial(times, bucket_size, thresh):
+#     # Sort the timestamps
+#     times = sorted(times)
 
-#     # Report progress
-#     with CURR_DONE_LOCK:
-#         CURR_DONE.value += 1
-#         local_curr_done = CURR_DONE.value
-#         if (local_curr_done % 1000 == 0) or (local_curr_done == TOTAL_TO_DO.value):
-#             progress_bar(local_curr_done, TOTAL_TO_DO.value)
-    
-#     # Unpack arguments
-#     customer, proto, key, bucket_size, bucket_num, bucket_start, percent_thresh, db_queue = arglist
-#     src = key[0]
-#     dst = key[1]
-#     dpt = key[2]
+#     # Create a new dictionary to hold time buckets
+#     buckets = {}
 
+#     # Iterate over all the timestamps
+#     for i in range(0, len(times)-1):
 
-#     if len(TIME_DICT[key]) < MIN_TIMESTAMPS:
+#         # Determine the number of seconds between two consecutive timestamps
+#         key= times[i+1] - times[i]
+
+#         # Count the number of times specific time differences occur
+#         if key not in buckets.keys():
+#             buckets[key] = 1
+#         else:
+#             buckets[key] += 1
+
+#     if len(buckets.keys()) > 0:
+#         return np.max(list(buckets.values())), len(buckets)
+#     else:
 #         return None
 
-#     time_buckets = defaultdict(list)
+def tbd_mp(arglist):
+    global MIN_TIMESTAMPS
+    global CURR_DONE
+    global UNLIKELY_CURR
+    global TOTAL_TO_DO
+    global CURR_DONE_LOCK
 
-#     # Get list of timestamps for the src, dst, dpt key
-#     timestamp_list = TIME_DICT[key]
+    # Report progress
+    with CURR_DONE_LOCK:
+        CURR_DONE.value += 1
+        local_curr_done = CURR_DONE.value
+        if (local_curr_done % 20 == 0) or (local_curr_done == TOTAL_TO_DO.value):
+            progress_bar(local_curr_done, TOTAL_TO_DO.value)
+    
+    # Unpack arguments
+    key, times, bucket_size, thresh, db_queue = arglist
 
-#     # Find smallest timestamp
-#     t0 = min(timestamp_list)
-
-#     # Put timestamps into buckets
-#     for entry in timestamp_list:
-#         bucket = int((entry - t0) / bucket_size)
-#         # print ("entry: " + str(entry) + ' bucket: ' + str(bucket))        
-#         time_buckets[bucket].append(entry)
-
-#     # Get list of bucket key values
-#     keys = time_buckets.keys()
-
-#     # Create counter to keep track of missing buckets
-#     missing_count = 0
-
-#     # Determine first bucket to start analysis on
-#     start = int(bucket_start / bucket_size)
-
-#     full_list = []
-
-#     # Find missing buckets
-#     for i in range(start, start + bucket_num):
-#         if i not in keys:
-#             missing_count += 1
-#             full_list.append(0)
-#         else:
-#             full_list.append(len(time_buckets[i]))
-
-#     # Determine percentage of buckets with a timestamp(s)
-#     percent_filled = float(bucket_num - missing_count) / bucket_num
-
-#     if percent_filled >= percent_thresh:
-#         ret_vals = (src, dst, dpt)
-#         buckets_graph(customer, full_list, proto, src, dst, dpt)
-#         db_queue.put( ret_vals )
-
-
-def tbd_serial(times, bucket_size, thresh):
     # Sort the timestamps
     times = sorted(times)
 
@@ -212,13 +197,13 @@ def tbd_serial(times, bucket_size, thresh):
     for i in range(0, len(times)-1):
 
         # Determine the number of seconds between two consecutive timestamps
-        key= times[i+1] - times[i]
+        freq = times[i+1] - times[i]
 
         # Count the number of times specific time differences occur
-        if key not in buckets.keys():
-            buckets[key] = 1
+        if freq not in buckets.keys():
+            buckets[freq] = 1
         else:
-            buckets[key] += 1
+            buckets[freq] += 1
 
     # Experimental...
     try:
@@ -228,18 +213,16 @@ def tbd_serial(times, bucket_size, thresh):
 
 
     if len(buckets.keys()) > 0:
-        return np.max(list(buckets.values())), len(buckets)
-    else:
-        return None
-
+        ret_vals = (key, np.max(list(buckets.values())), len(buckets))
+        db_queue.put( ret_vals )
 
 def TBD_analysis(customer, proto, bucket_size, thresh, graph, save_dir, result_type):
     # Multiprocessing prep
-    # global TOTAL_TO_DO
-    # global CURR_DONE
-    # global TIME_DICT
-    # CURR_DONE.value = 0
-    # worker_pool = Pool(processes=None, maxtasksperchild=1)
+    global TOTAL_TO_DO
+    global CURR_DONE
+    global TIME_DICT
+    CURR_DONE.value = 0
+    worker_pool = Pool(processes=None, maxtasksperchild=1)
 
     # searching for beacons in log files
     doc_type = 'logs'
@@ -258,7 +241,7 @@ def TBD_analysis(customer, proto, bucket_size, thresh, graph, save_dir, result_t
 
     
     scroll_id = ""
-    scroll_len = 1000
+    scroll_len = 100
 
     scrolling = True
 
@@ -277,10 +260,10 @@ def TBD_analysis(customer, proto, bucket_size, thresh, graph, save_dir, result_t
             count += 1
             
             try:
-            	src = entry['fields'][SOURCE_IP][0]
-            	dst = entry['fields'][DESTINATION_IP][0]
-            	dpt = entry['fields'][DESTINATION_PORT][0]
-            	ts  = int(time.mktime((dt_parser.parse(entry['fields'][TIMESTAMP][0])).timetuple()))
+                src = entry['fields'][SOURCE_IP][0]
+                dst = entry['fields'][DESTINATION_IP][0]
+                dpt = entry['fields'][DESTINATION_PORT][0]
+                ts  = int(time.mktime((dt_parser.parse(entry['fields'][TIMESTAMP][0])).timetuple()))
             except:
                 error_count += 1
                 continue
@@ -297,50 +280,57 @@ def TBD_analysis(customer, proto, bucket_size, thresh, graph, save_dir, result_t
         if count == scroll_size:
             scrolling = False
 
-    print len(TIME_DICT)
     if not (len(TIME_DICT) == 0):
         # parallelize it
-        # m = Manager()
-        # db_queue = m.Queue()
-        # n_cores = multiprocessing.cpu_count()
-        # print('>>> Found ' + str(n_cores) + ' core(s)!')
+        m = Manager()
+        db_queue = m.Queue()
+        n_cores = multiprocessing.cpu_count()
+        print('>>> Found ' + str(n_cores) + ' core(s)!')
         
         # create parameter list for threads and keys
-        # arglist = []
-        # for key in TIME_DICT:
-        #     arglist.append((customer, proto, key, bucket_size, bucket_num, bucket_start, percent_thresh, db_queue))
+        arglist = []
+        for key in TIME_DICT:
+            arglist.append((key, TIME_DICT[key], bucket_size, thresh, db_queue))
 
         # determine the total number of keys to be split up amongst threads
-        # TOTAL_TO_DO.value = len(arglist)
+        TOTAL_TO_DO.value = len(arglist)
 
-        # run the fft mapping
-        # print ">>> Running beacon analysis... "
-        # worker_pool.map(create_buckets_mp, iterable=arglist, chunksize=1000)
+        # run shit
+        print(">>> Running TBD analysis... ")
+        worker_pool.map(tbd_mp, iterable=arglist, chunksize=1000)
         
-        # Write results to elasticsearch
-        # while not db_queue.empty():
-        #     vals = []
-        #     try:
-        #         vals = db_queue.get()
-        #         n_vals = len(list(vals))
-        #     except:
-        #         break                
-        #     write_data(vals, customer, proto, result_type)
-
 
         common_frequency_dict = {}
         frequency_count_dict = {}
 
-
-        # for every source, destination, destination port pair get most common frequency that signal occurs at
-        # as well as the total number of different frequencies the signal happens at
-        for key in TIME_DICT:
+        while not db_queue.empty():
+            vals = []
             try:
-                common_frequency, frequency_count = tbd_serial(TIME_DICT[key], bucket_size, thresh)
+                vals = db_queue.get()
+                key = vals[0]
+                common_frequency_dict[key] = vals[1]
+                frequency_count_dict[key]  = vals[2]
+
             except:
                 continue
-            common_frequency_dict[key] = common_frequency
-            frequency_count_dict[key]  = frequency_count
+
+
+        #     write_data(vals, customer, proto, result_type)
+
+
+        # common_frequency_dict = {}
+        # frequency_count_dict = {}
+
+
+        # # for every source, destination, destination port pair get most common frequency that signal occurs at
+        # # as well as the total number of different frequencies the signal happens at
+        # for key in TIME_DICT:
+        #     try:
+        #         common_frequency, frequency_count = tbd_serial(TIME_DICT[key], bucket_size, thresh)
+        #     except:
+        #         continue
+        #     common_frequency_dict[key] = common_frequency
+        #     frequency_count_dict[key]  = frequency_count
 
         print common_frequency_dict
 
@@ -378,11 +368,11 @@ def run(customer, proto, bucket_size, thresh, graph, save_dir, result_type, serv
     ht_data = ESServer(server)
 
     print(colors.bcolors.OKBLUE + '[-] Checking potential beacons for customer '
-          + colors.bcolors.HEADER + customer),
+          + colors.bcolors.HEADER + customer, end="")
     if proto != "":
         print(colors.bcolors.OKBLUE + ' with protocol '
-              + colors.bcolors.HEADER + proto ),
-    print(colors.bcolors.OKBLUE + '[-]' + colors.bcolors.ENDC)
+              + colors.bcolors.HEADER + proto, end="")
+    print(colors.bcolors.OKBLUE + ' [-]' + colors.bcolors.ENDC)
 
     # Delete Previous Results
     ht_data.delete_results(customer, result_type)
@@ -397,17 +387,12 @@ def run(customer, proto, bucket_size, thresh, graph, save_dir, result_type, serv
     time_elapsed = time_end - time_start
 
     print(colors.bcolors.OKGREEN + '[+] Finished checking potential beacons for '
-          + colors.bcolors.HEADER + customer),
+          + colors.bcolors.HEADER + customer, end="")
     if proto != "":
         print(colors.bcolors.OKBLUE + ' with protocol '
-              + colors.bcolors.HEADER + proto ),
-    print(colors.bcolors.OKGREEN + '[+]' + colors.bcolors.ENDC)
+              + colors.bcolors.HEADER + proto, end="")
+    print(colors.bcolors.OKGREEN + ' [+]' + colors.bcolors.ENDC)
 
     print(colors.bcolors.OKGREEN + '[*] Time for bucket analysis: ' + str(("%.1f") % time_elapsed) + ' seconds [*]' 
           + colors.bcolors.ENDC)
 
- #-2015.03.29
-run('logstash-ht-2015.03.29', '', 1, 1, False, '', 'test', '192.168.0.14:9200')
-
-# (u'55.66.77.88', u'11.22.33.44', u'9999') 2.30940107635
-# (u'192.168.0.2', u'0.112.41.246', u'37613') 2.30943671773
