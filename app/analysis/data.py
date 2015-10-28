@@ -70,7 +70,7 @@ class ESServer(object):
 		
 		# Write results to elasticsearch
 		try:
-			self.es.index(index = customer, doc_type="results", body=data, refresh = refresh_index )
+			self.es.index(index = 'logstash-ob', doc_type="results", body=data, refresh = refresh_index )
 		except:
 			print("Error writing to elasticsearch")
 
@@ -94,14 +94,15 @@ class ESServer(object):
 		while scrolling:
 			# Retrieve data
 			hits, scroll_id, scroll_size = self.get_data(customer,'results',fields, constraints, ignore, scroll_id, scroll_len)
-			
+
 			for h in hits:
 				query = query + '{ "delete" : { "_index" : "' + customer + '", "_type" : "' + 'results' + '", "_id" : "' + str(h['_id']) + '" } }\n'
-
+			
+			# print query
 			try:
 				self.es.bulk(query)
 			except:
-				break
+				continue
 
 			if len(hits) < 1:
 				scrolling = False

@@ -3,7 +3,6 @@
 ##########################################
 import datetime
 from collections import defaultdict
-
 ##########################################
 #           INTERNAL LIBRARIES           #    
 ##########################################
@@ -12,14 +11,12 @@ import colors
 from data import ESServer
 from field_names import *
 from module import Module
-
-
 ##########################################
 #              MODULE SETUP              #    
 ##########################################
 NAME = "cross-analysis"
 DESC = "Look for machines that were flagged for exhibiting multiple indicators of compromise"
-CROSSREF_BEHAVIORS = ['likely_beacons','dns','concurrent', 'blacklisted','urls', 'scanning', 'useragent']
+CROSSREF_BEHAVIORS = ['likely_beacons','concurrent', 'blacklisted','long_urls', 'scanning']
 
 OPTS = {
         "customer": {
@@ -125,14 +122,15 @@ def find_cross_analysis(customer, result_type):
     crossref_dict_len = len(crossref_dict)
     if not (crossref_dict_len == 0):
         num_found = 0
-        print('>>> Performing cross-analysis and writing results to elasticsearch... '+ colors.bcolors.ENDC)
+        print('>>> Performing cross-analysis and writing results to elasticsearch... ')
 
         # Record all src ips with multiple behaviors
         count = 0
         for src in sorted(crossref_dict, key=lambda src: len(crossref_dict[src]), reverse=True):
             # Report progress
-            progress_bar(count, crossref_dict_len)
             count += 1
+            progress_bar(count, crossref_dict_len)
+            
             if len(crossref_dict[src]) > 1:
                 num_found += 1
                 write_data(src, crossref_dict[src], customer, result_type)
@@ -149,7 +147,7 @@ def run(customer, result_type, server):
     ht_data = ESServer(server)
 
     # Yaaayyy, colors
-    print(colors.bcolors.OKBLUE   + '[-] Finding concurrent logins for customer '
+    print(colors.bcolors.OKBLUE   + '[-] Performing cross-analysis of malicious behaviors for customer '
           + colors.bcolors.HEADER + customer 
           + colors.bcolors.OKBLUE + ' [-]'
           + colors.bcolors.ENDC)
@@ -159,8 +157,7 @@ def run(customer, result_type, server):
     
     find_cross_analysis(customer, result_type)
 
-    print(colors.bcolors.OKGREEN   + '[+] Finished finding concurrent logins for customer '
+    print(colors.bcolors.OKGREEN   + '[+] Finished performing cross-analysis of malicious behaviors for customer '
           + colors.bcolors.HEADER  + customer
           + colors.bcolors.OKGREEN + ' [+]'
           + colors.bcolors.ENDC)
-

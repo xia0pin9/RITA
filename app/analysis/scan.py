@@ -1,23 +1,13 @@
 ##########################################
 #           EXTERNAL LIBRARIES           #    
 ##########################################
-
-################################################################
-# [!] KEEP FOLLOWING FOUR IMPORTS AT THE TOP AND IN ORDER [!]  #
-# (This will force matplotlib to not use any Xwindows backend) #
-################################################################
-import matplotlib
-matplotlib.use('Agg') 
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-################################################################
-
+import matplotlib.pyplot as plt
+from scipy.stats import gaussian_kde
 import os
 import time
 import datetime
 from collections import defaultdict
-import pylab as P
-
+import numpy as np
 ##########################################
 #           INTERNAL LIBRARIES           #    
 ##########################################
@@ -26,18 +16,20 @@ import colors
 from data import ESServer
 from field_names import *
 from module import Module
-
 ##########################################
 #              MODULE SETUP              #    
 ##########################################
-NAME = 'scan'
+NAME = 'scanning'
 DESC = 'Find Machines Exhibiting Scanning Behavior'
 
 # Default threshold for lowest number of ports that indicate potential scan activity
-SCAN_THRESH = 50
+SCAN_THRESH = 60
+
+# Default threshold for lowest number of ports that will require graphing
+GRAPH_THRESH = 100
 
 # Default save directory for generated graphs
-POTENTIAL_SCAN_SAVE_DIR = '../graphs/potential_scan/'
+POTENTIAL_SCAN_SAVE_DIR = '/var/RITA/potential_scan/'
 
 # Default protocol
 SCAN_PROTO = ""
@@ -58,6 +50,10 @@ OPTS = {
         "graph": {
             "value": False,
             "type": "bool"
+            },
+        "graph_thresh": {
+            "value": GRAPH_THRESH,
+            "type": "number"
             },
         "potential_save_dir": {
             "value": POTENTIAL_SCAN_SAVE_DIR,
@@ -82,6 +78,7 @@ class ScanModule(Module):
             self.options["proto"]["value"],
             self.options["threshold"]["value"],
             self.options["graph"]["value"],
+            self.options["graph_thresh"]["value"],
             self.options["potential_save_dir"]["value"],
             self.options["result_type"]["value"],            
             self.options["server"]["value"])
@@ -90,16 +87,20 @@ class ScanModule(Module):
 ##########################################
 
 
-def write_data(src, dst, proto, customer, result_type):
+def write_data(src, dst, ports_list, num_unique_ports, num_total_ports, proto, customer, result_type):
     # format new entry
     entry = {}
 
     # Check if user opted to restrict by protocol
     if proto != "":
-        entry[PROTOCOL]        = proto
+        entry[PROTOCOL]       = proto
 
-    entry[SOURCE_IP]       = src
-    entry[DESTINATION_IP]  = dst
+    entry[SOURCE_IP]          = src
+    entry[DESTINATION_IP]     = dst
+    entry['ports']            = ports_list       # list of unique ports in potential scan
+    entry['num_unique_ports'] = num_unique_ports # number of unique ports in potential scan (no repetition)
+    entry['num_total_ports']  = num_total_ports  # number of total ports in potential scan (with repetition)
+
     
     entry['@timestamp'] = datetime.datetime.now()
     
@@ -107,7 +108,7 @@ def write_data(src, dst, proto, customer, result_type):
     ht_data.write_data(entry, customer, result_type, True)
 
 
-def scan_analysis(customer, proto, threshold, graph, potential_save_dir, result_type):
+def scan_analysis(customer, proto, threshold, graph, graph_thresh, potential_save_dir, result_type):
     # Search will be conducted in log files
     doc_type = 'logs'
 
@@ -146,10 +147,14 @@ def scan_analysis(customer, proto, threshold, graph, potential_save_dir, result_
         for entry in hits:
             count += 1
             try:    
-                    # Get source ip, destination ip, and port of current log entry
-                    src = entry['fields'][SOURCE_IP][0]
-                    dst = entry['fields'][DESTINATION_IP][0]
-                    dpt = entry['fields'][DESTINATION_PORT][0]
+                # Get source ip, destination ip, and port of current log entry
+                src = entry['fields'][SOURCE_IP][0]
+                dst = entry['fields'][DESTINATION_IP][0]
+                dpt = entry['fields'][DESTINATION_PORT][0]
+
+                if dpt == '':
+                    error_count += 1
+                    continue
 
             except:
                 error_count += 1
@@ -158,9 +163,8 @@ def scan_analysis(customer, proto, threshold, graph, potential_save_dir, result_
             # Set up dictionary key as source and destination ip pair
             key =  (src, dst)
 
-            # Add unique destination ports
-            if dpt not in scan_dict[key]:
-                scan_dict[key].append(dpt)
+            # Add all destination ports
+            scan_dict[key].append(dpt)
 
         
 
@@ -170,12 +174,13 @@ def scan_analysis(customer, proto, threshold, graph, potential_save_dir, result_
    
     # Get total number of keys (unique source - destination pairs)
     total_keys = len(scan_dict)
-    
+
     if not total_keys == 0:
         print('>>> Running scan analysis ... ')
 
         key_count = 0
         unlikely_found = 0
+        likely_found = 0
 
         # Iterate over all the keys...
         for key in scan_dict:
@@ -191,15 +196,25 @@ def scan_analysis(customer, proto, threshold, graph, potential_save_dir, result_
             # Get ports that match the source-destination pair
             ports = scan_dict[key]
 
+            # Get number of unique destination ports
+            num_unique_ports = len(set(ports))
+
+            # Get total number ports
+            num_total_ports = len(ports)
+
             # If there are more than specified amount of ports, flag as likely scan
-            if threshold < len(ports):
-                if graph:
+            if num_unique_ports > threshold:
+                if graph and (num_unique_ports > graph_thresh):
                     ports = [int(i) for i in scan_dict[key]]
                     graph_scans(customer, src, dst, proto, ports, threshold, potential_save_dir)
-                write_data(src, dst, proto, customer, result_type)
+                write_data(src, dst, ports, num_unique_ports, num_total_ports, proto, customer, result_type)
+                likely_found += 1
             else:
-                unlikely_found = unlikely_found + 1
+                unlikely_found += 1
 
+        # Report number of potential scans found    
+        print(colors.bcolors.FAIL + '[!] Found ' + str(likely_found) + ' potential port scans [!]'
+              + colors.bcolors.ENDC)
     else:
         print (colors.bcolors.WARNING + '[!] Querying elasticsearch failed - Verify your protocol choice or log configuration file! [!]'+ colors.bcolors.ENDC)
 
@@ -215,22 +230,45 @@ def graph_scans(customer, src, dst, proto, ports, threshold, potential_save_dir)
     if proto != "":
         proto_temp = proto
     else:
-        proto_temp = "All Protocols"
+        proto_temp = "none specified"
 
     # Create histogram, with port numbers as the "bins" and connection
     # attempts per port as the "counts" in the bins
-    n, bins, patches = P.hist(ports, bins=65535, histtype='step',
-                              normed=False)
-    P.gca().set_ylim(ymax=10)
-    P.title('Potential Scan (Histogram) for src: ' + str(src) + 
-        ', dst: ' + dst + ', protocol: ' + proto_temp + ', threshold: ' + str(threshold))
-    P.xlabel('Port Numbers')
-    P.ylabel('Connection Attempts')
-    P.savefig(potential_save_dir + 'src_' + src.replace('.','_') + '__' + 'dst_' + dst.replace('.','_') + '.png')
-    P.close()
+    n, bins, patches = plt.hist(ports, bins=51000, histtype='step',
+                              normed=False, color='lightseagreen')
+
+    plt.gca().set_ylim(ymax=5)
+    plt.title('Potential Scan for [Customer: ' + customer + ']\n[src: ' + str(src) + 
+        '] [dst: ' + dst + '] [Proto: ' + proto_temp + '] [Threshold: ' + str(threshold) + "]")
+    plt.xlabel('Port Numbers')
+    plt.ylabel('Connection Attempts')
+    plt.savefig(potential_save_dir + 'src_' + src.replace('.','_') + '__' + 'dst_' + dst.replace('.','_') + '.png')
+    # plt.show()  # uncomment if you want graphs to pop up
+    plt.close()
 
 
-def run(customer, proto, threshold, graph, potential_save_dir, result_type, server):
+    # Alternative scatter plot heat map thingie.
+    # d = {}
+
+    # for i in ports:
+    #     if i in d.keys():
+    #         d[i] += 1
+    #     else:
+    #         d[i] = 1
+
+    # x = d.keys()
+    # y = d.values()
+
+    # xy = np.vstack([x,y])
+    # z = gaussian_kde(xy)(xy)
+
+    # fig, ax = plt.subplots()
+    # ax.scatter(x,y,c=z,s=5,edgecolor='')
+    # plt.show()
+    
+
+
+def run(customer, proto, threshold, graph, graph_thresh, potential_save_dir, result_type, server):
     global ht_data
     ht_data = ESServer(server)
     print(colors.bcolors.OKBLUE + '[-] Checking potential port scans for '
@@ -246,15 +284,10 @@ def run(customer, proto, threshold, graph, potential_save_dir, result_type, serv
     # Delete Previous Results
     ht_data.delete_results(customer, result_type)
 
-    scan_analysis(customer, proto, threshold, graph, potential_save_dir, result_type)
+    scan_analysis(customer, proto, threshold, graph, graph_thresh, potential_save_dir, result_type)
 
     time_end = time.time()
     time_elapsed = time_end - time_start
-
-    # Report number of potential scans found
-    hits, scroll_id, scroll_size = ht_data.get_data(customer, 'results', [], [{'result_type':result_type}], [], '', 1000)
-    print(colors.bcolors.FAIL + '[!] Found ' + str(scroll_size) + ' potential port scans [!]'
-          + colors.bcolors.ENDC)
 
     print(colors.bcolors.OKGREEN + '[+] Finished checking potential port scans for '
           + colors.bcolors.HEADER + customer),
@@ -264,4 +297,3 @@ def run(customer, proto, threshold, graph, potential_save_dir, result_type, serv
     print(colors.bcolors.OKBLUE + '[-]' + colors.bcolors.ENDC)
 
     print(colors.bcolors.OKGREEN + '[+] Time for scan analysis: ' + str(time_elapsed) + ' [+]' + colors.bcolors.ENDC)
-
