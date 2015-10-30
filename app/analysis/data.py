@@ -70,7 +70,7 @@ class ESServer(object):
 		
 		# Write results to elasticsearch
 		try:
-			self.es.index(index = 'logstash-ob', doc_type="results", body=data, refresh = refresh_index )
+			self.es.index(index = customer, doc_type="results", body=data, refresh = refresh_index )
 		except:
 			print("Error writing to elasticsearch")
 
