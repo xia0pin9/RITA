@@ -111,15 +111,18 @@ class TBDModule(Module):
 ##########################################
 
 
-def write_data(data, customer, proto, result_type):
+def write_data(data, rating, customer, proto, result_type):
     # format new entry
     entry = {}
-    entry[PROTOCOL]         = proto
+
+    if proto != "":
+    	entry[PROTOCOL]     = proto
+
     entry[SOURCE_IP]        = data[0]
     entry[DESTINATION_IP]   = data[1]
     entry[DESTINATION_PORT] = data[2]
-    
-    entry[TIMESTAMP] = datetime.datetime.now()
+    entry["std_dev"]        = rating    
+    entry[TIMESTAMP]        = datetime.datetime.now()
     
     # write entry to elasticsearch
     ht_data.write_data(entry, customer, result_type, refresh_index = True)
@@ -206,10 +209,10 @@ def tbd_mp(arglist):
             buckets[freq] += 1
 
     # Experimental...
-    try:
-    	del(buckets[0])
-    except:
-    	a = 1
+    # try:
+    # 	del(buckets[0])
+    # except:
+    # 	a = 1
 
 
     if len(buckets.keys()) > 0:
@@ -332,7 +335,7 @@ def TBD_analysis(customer, proto, bucket_size, thresh, graph, save_dir, result_t
         #     common_frequency_dict[key] = common_frequency
         #     frequency_count_dict[key]  = frequency_count
 
-        print common_frequency_dict
+        # print common_frequency_dict
 
 
         # Find the mean and standard deviation for each of the frequency dicts
@@ -348,8 +351,9 @@ def TBD_analysis(customer, proto, bucket_size, thresh, graph, save_dir, result_t
                 rating = ( abs(common_frequency_dict[key] - common_mean) / common_std ) + \
                          ( abs(frequency_count_dict[key]  - count_mean)  / count_std )
 
-                if rating > thresh:
-                    print (str(key) + " " + str(rating))
+                if rating > float(thresh):
+                	write_data(key, rating, customer, proto, result_type)
+                    # print (str(key) + " " + str(rating))
 
 
 
@@ -368,10 +372,10 @@ def run(customer, proto, bucket_size, thresh, graph, save_dir, result_type, serv
     ht_data = ESServer(server)
 
     print(colors.bcolors.OKBLUE + '[-] Checking potential beacons for customer '
-          + colors.bcolors.HEADER + customer, end="")
+          + colors.bcolors.HEADER + customer),
     if proto != "":
         print(colors.bcolors.OKBLUE + ' with protocol '
-              + colors.bcolors.HEADER + proto, end="")
+              + colors.bcolors.HEADER + proto),
     print(colors.bcolors.OKBLUE + ' [-]' + colors.bcolors.ENDC)
 
     # Delete Previous Results
@@ -387,12 +391,13 @@ def run(customer, proto, bucket_size, thresh, graph, save_dir, result_type, serv
     time_elapsed = time_end - time_start
 
     print(colors.bcolors.OKGREEN + '[+] Finished checking potential beacons for '
-          + colors.bcolors.HEADER + customer, end="")
+          + colors.bcolors.HEADER + customer),
     if proto != "":
         print(colors.bcolors.OKBLUE + ' with protocol '
-              + colors.bcolors.HEADER + proto, end="")
+              + colors.bcolors.HEADER + proto),
     print(colors.bcolors.OKGREEN + ' [+]' + colors.bcolors.ENDC)
 
     print(colors.bcolors.OKGREEN + '[*] Time for bucket analysis: ' + str(("%.1f") % time_elapsed) + ' seconds [*]' 
           + colors.bcolors.ENDC)
 
+run('test_customer','',1,1,False,'','test_tbd','localhost:9200')
