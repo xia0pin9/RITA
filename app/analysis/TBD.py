@@ -131,7 +131,6 @@ def write_data(key, data, customer, proto, result_type):
     ht_data.write_data(entry, customer, result_type, refresh_index = True)
 
 def tbd_graph(customer, buckets, proto, src, dst, dpt):
-
     # Make directory to store graphs
     save_dir = './data/' + customer + "/buckets/"
     if not os.path.exists(save_dir):
@@ -203,8 +202,14 @@ def tbd_mp(arglist):
     # Sort the timestamps
     times = sorted(times)
 
+    spread = times[-1]-times[0]
+
     # Create a new dictionary to hold time buckets
     buckets = {}
+
+    time_buckets = {}
+
+    dt_list = []
 
     # Iterate over all the timestamps
     for i in range(0, len(times)-1):
@@ -212,11 +217,53 @@ def tbd_mp(arglist):
         # Determine the number of seconds between two consecutive timestamps
         freq = times[i+1] - times[i]
 
+        bucket = int(times[i] / 5000)
+
+        if bucket not in time_buckets.keys():
+            time_buckets[bucket] = 1
+        else:
+            time_buckets[bucket] += 1
+
+
+        # dt_list.append(freq)
+
         # Count the number of times specific time differences occur
         if freq not in buckets.keys():
             buckets[freq] = 1
         else:
             buckets[freq] += 1
+
+    s = sum(buckets.values())
+    
+
+    # vals = sorted(buckets.values())
+    keys = sorted(buckets.keys())
+    l = len(keys)
+
+    if s > 30:
+        best = 10000000
+        av = [0]
+        if (len(keys) is 1):
+            best = 1
+            av = [keys[0]]
+        for i in range(l-1):
+            m_sum = buckets[keys[i]]
+            r = 1
+            if (float(m_sum)/s > 0.85) and r < best:
+                best = r
+                av = [keys[i]]
+            for j in range(i+1,l):
+                m_sum += buckets[keys[j]]
+                r = keys[j]-keys[i]
+                if (float(m_sum)/s > 0.85) and r < best:
+                    best = r
+                    av = [keys[i],keys[j]]
+                
+                
+
+        ret_vals = (key, best, len(times), av, len(time_buckets.keys()), spread)
+        db_queue.put( ret_vals )
+        # tbd_graph('test', buckets, 'none', key[0], key[1], key[2])
 
     # Experimental...
     # try:
@@ -224,17 +271,25 @@ def tbd_mp(arglist):
     # except:
     # 	a = 1
 
-    if len(buckets.keys()) > 0:
-        bucket_max = np.max(list(buckets.values()))
-        bucket_len = len(buckets)
-        bucket_mean = np.mean(list(buckets.values()))
-        mar = float(bucket_max)/bucket_mean
+    # if len(buckets.keys()) > 0:
+    #     bucket_max = np.max(list(buckets.values()))
+    #     bucket_len = len(buckets)
+    #     # bucket_mean = np.mean(list(buckets.values()))
+    #     s = float(sum(buckets.values()))
+    #     mean = s / max(buckets.values())
+    #     mar = bucket_max / mean
 
-        if mar > 0.9 and len(times) > 20:
-            tbd_graph('test', buckets, 'none', key[0], key[1], key[2])
+    # if mar > 0.9 and len(times) > 20:
+    
 
-        ret_vals = (key, bucket_max, bucket_len, mar)
-        db_queue.put( ret_vals )
+    
+    # if len(dt_list) > 1:
+        # h = np.histogram(dt_list, density = True)
+        # print h
+        # ret_vals = (key, mar)
+        # db_queue.put( ret_vals )
+    # ret_vals = (key, bucket_max, bucket_len, mar)
+    
 
 def TBD_analysis(customer, proto, bucket_size, thresh, graph, save_dir, result_type):
     # Multiprocessing prep
@@ -283,7 +338,8 @@ def TBD_analysis(customer, proto, bucket_size, thresh, graph, save_dir, result_t
                 src = entry['fields'][SOURCE_IP][0]
                 dst = entry['fields'][DESTINATION_IP][0]
                 dpt = entry['fields'][DESTINATION_PORT][0]
-                ts  = int(time.mktime((dt_parser.parse(entry['fields'][TIMESTAMP][0])).timetuple()))
+                dtime = dt_parser.parse(entry['fields'][TIMESTAMP][0])
+                ts  = int(time.mktime(dtime.timetuple())*1e3 + dtime.microsecond/1e3)
             except:
                 error_count += 1
                 continue
@@ -325,15 +381,25 @@ def TBD_analysis(customer, proto, bucket_size, thresh, graph, save_dir, result_t
         common_frequency_dict = {}
         frequency_count_dict = {}
         mar_dict = {}
+        var_dict = {}
+        size_dict = {}
+        av_dict = {}
+        fill_dict = {}
+        spread_dict = {}
 
         while not db_queue.empty():
             vals = []
             try:
                 vals = db_queue.get()
                 key = vals[0]
-                common_frequency_dict[key] = vals[1]
-                frequency_count_dict[key]  = vals[2]
-                mar_dict[key] = vals[3]
+                var_dict[key] = vals[1]
+                size_dict[key] = vals[2]
+                av_dict[key] = vals[3]
+                fill_dict[key] = vals[4]
+                spread_dict[key] = vals[5]
+                # common_frequency_dict[key] = vals[1]
+                # frequency_count_dict[key]  = vals[2]
+                # mar_dict[key] = vals[3]
 
             except:
                 continue
@@ -360,14 +426,36 @@ def TBD_analysis(customer, proto, bucket_size, thresh, graph, save_dir, result_t
 
 
         # Find the mean and standard deviation for each of the frequency dicts
-        common_mean = np.mean(list(common_frequency_dict.values()))
-        common_std = np.std(list(common_frequency_dict.values()))
+        # common_mean = np.mean(list(common_frequency_dict.values()))
+        # common_std = np.std(list(common_frequency_dict.values()))
 
-        count_mean = np.mean(list(frequency_count_dict.values()))
-        count_std = np.std(list(frequency_count_dict.values()))
+        # count_mean = np.mean(list(frequency_count_dict.values()))
+        # count_std = np.std(list(frequency_count_dict.values()))
 
-        mar_mean = np.mean(list(mar_dict.values()))
-        mar_std = np.std(list(mar_dict.values()))
+        # mar_mean = np.mean(list(mar_dict.values()))
+        # mar_std = np.std(list(mar_dict.values()))
+
+        var_mean = np.mean(list(var_dict.values()))
+        var_std = np.std(list(var_dict.values()))
+
+        size_mean = np.mean(list(size_dict.values()))
+        size_std = np.std(list(size_dict.values()))
+
+        averages = {}
+        for i in av_dict.keys():
+            averages[i] = np.mean(av_dict[i])
+
+        av_mean = np.mean(list(averages.values()))
+        av_std = np.std(list(averages.values()))
+
+        fill_mean = np.mean(list(fill_dict.values()))
+        fill_std = np.std(list(fill_dict.values()))
+
+        spread_mean = np.mean(list(spread_dict.values()))
+        spread_std = np.std(list(spread_dict.values()))
+
+        var_max = max(list(var_dict.values()))
+        size_max = max(list(size_dict.values()))
 
         data = []
         
@@ -377,25 +465,55 @@ def TBD_analysis(customer, proto, bucket_size, thresh, graph, save_dir, result_t
             # if key in common_frequency_dict and key in frequency_count_dict:
                 # rating = ( abs(common_frequency_dict[key] - common_mean) / common_std ) + \
                 #          ( abs(frequency_count_dict[key]  - count_mean)  / count_std )
-            if key in common_frequency_dict:
-                val = (abs(common_frequency_dict[key] - common_mean) / common_std)
-                data.append(("max_std", val))
-                if val > thresh:
-                    do_write = True
+            # if key in common_frequency_dict:
+            #     val = (abs(common_frequency_dict[key] - common_mean) / common_std)
+            #     data.append(("max_std", val))
+            #     if val > thresh:
+            #         do_write = True
 
-            if key in frequency_count_dict:
-                val = (abs(frequency_count_dict[key] - count_mean) / count_std)
-                data.append(("count_std", val ))
-                if val > thresh:
-                    do_write = True
+            # if key in frequency_count_dict:
+            #     val = (abs(frequency_count_dict[key] - count_mean) / count_std)
+            #     data.append(("count_std", val ))
+            #     if val > thresh:
+            #         do_write = True
 
-            if key in mar_dict:
-                val = (abs(mar_dict[key] - mar_mean) / mar_std)
-                data.append(("mar_std", val))
-                if val > thresh:
-                    do_write = True
-
-            if do_write is True:
+            # if key in mar_dict:
+            #     val = (abs(mar_dict[key] - mar_mean) / mar_std)
+            #     data.append(("mar_std", val))
+            #     if val > thresh:
+            #         do_write = True
+            if key in var_dict and key in size_dict and key in av_dict and key in fill_dict:
+                r = var_dict[key]
+                data.append(("range", r))
+                s = size_dict[key]
+                data.append(("size", s))
+                av = str(av_dict[key][0])
+                if len(av_dict[key]) > 1:
+                    av = str(av_dict[key][0]) + '--' + str(av_dict[key][1])
+                data.append(('range_vals',av))
+                f = fill_dict[key]
+                data.append(('fill',f))
+                spread = spread_dict[key]
+                data.append(('spread',spread))
+                # rank = -1 * (var_dict[key] - var_mean) / var_std
+                # rank += (size_dict[key] - size_mean) / size_std
+                # rank += (np.mean(av_dict[key]) - av_mean) / av_std
+                # rank += ((fill_dict[key] - fill_mean) / fill_std)/10
+                # rank += (abs(spread_dict[key] - spread_mean) / spread_std)
+                # rank *= 1000
+                # rank = int(rank)
+                data.append(('rank',rank))
+                # r = var_max - r
+                # rank = (10000*r)+float(s/size_max)*100
+                # rank = int(rank)
+                # r_thresh = 500 
+                # s_thresh = 10000
+                # r = float(r_thresh-r) / r_thresh
+                # r *= 20000
+                # s = float(s) / s_thresh
+                # s *= 10000
+                # rank = int(r+s)
+                # data.append(("rank",rank))
             	write_data(key, data, customer, proto, result_type)
 
 
@@ -443,4 +561,4 @@ def run(customer, proto, bucket_size, thresh, graph, save_dir, result_type, serv
     print(colors.bcolors.OKGREEN + '[*] Time for bucket analysis: ' + str(("%.1f") % time_elapsed) + ' seconds [*]' 
           + colors.bcolors.ENDC)
 
-# run('test_customer','',1,1.0,True,'/home/joe/Documents/TBD/','test_tbd','localhost:9200')
+run('test_customer','',1,1.0,True,'/home/joe/Documents/TBD/','test_tbd','localhost:9200')
