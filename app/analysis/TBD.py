@@ -585,4 +585,4 @@ def run(customer, proto, bucket_size, thresh, graph, save_dir, result_type, serv
     print(colors.bcolors.OKGREEN + '[*] Time for bucket analysis: ' + str(("%.1f") % time_elapsed) + ' seconds [*]' 
           + colors.bcolors.ENDC)
 
-run('test_customer','',1,1.0,True,'/home/joe/Documents/TBD/','test_tbd','localhost:9200')
+# run('test_customer','',1,1.0,True,'/home/joe/Documents/TBD/','test_tbd','localhost:9200')
