@@ -447,8 +447,10 @@ def find_beacons_graph(customer, proto, category, save_dir):
 
             times = get_datetimes(src, dst, dpt, customer, proto)
 
+            # Make sure there are enough timestamps in the list so we can justify it
+            # as a likely beacon...
             if not len(times) > 10:
-                return None
+                continue
 
             span = times[-1] - times[0]
             if span > 0:
@@ -630,8 +632,11 @@ def beacon_analysis(customer, proto, result_type):
 
         # run the fft mapping
         print ">>> Running beacon analysis... "
-        worker_pool.map(perform_fft_mp, iterable=arglist, chunksize=1000)
+        # worker_pool.map(perform_fft_mp, iterable=arglist, chunksize=1000)
         
+        for i in arglist:
+            perform_fft_mp(i)
+
         # Write results to elasticsearch
         while not db_queue.empty():
             vals = []
@@ -639,7 +644,7 @@ def beacon_analysis(customer, proto, result_type):
                 vals = db_queue.get()
                 n_vals = len(list(vals))
             except:
-                break            
+                continue 
 
             write_data(vals, customer, proto, result_type)
     else:

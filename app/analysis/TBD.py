@@ -326,6 +326,8 @@ def TBD_analysis(customer, proto, bucket_size, thresh, graph, save_dir, result_t
     count = 0
     error_count = 0
 
+    min_time = 1000000000000000000
+    max_time = 0
     # Build a dictionary for beacon detection
     while scrolling:
         # Retrieve data
@@ -340,6 +342,10 @@ def TBD_analysis(customer, proto, bucket_size, thresh, graph, save_dir, result_t
                 dpt = entry['fields'][DESTINATION_PORT][0]
                 dtime = dt_parser.parse(entry['fields'][TIMESTAMP][0])
                 ts  = int(time.mktime(dtime.timetuple())*1e3 + dtime.microsecond/1e3)
+                if ts < min_time:
+                    min_time = ts
+                if ts > max_time:
+                    max_time = ts
             except:
                 error_count += 1
                 continue
@@ -492,17 +498,30 @@ def TBD_analysis(customer, proto, bucket_size, thresh, graph, save_dir, result_t
                     av = str(av_dict[key][0]) + '--' + str(av_dict[key][1])
                 data.append(('range_vals',av))
                 f = fill_dict[key]
-                data.append(('fill',f))
+                data.append(('fill',float(f*100)/(float(max_time-min_time)/5)))
                 spread = spread_dict[key]
-                data.append(('spread',spread))
+                data.append(('spread',float(100*spread)/(max_time-min_time)))
+
+                if r < 10000 and s > 50 and av_dict[key][0] > 100:
+                    do_write = True
                 # rank = -1 * (var_dict[key] - var_mean) / var_std
                 # rank += (size_dict[key] - size_mean) / size_std
                 # rank += (np.mean(av_dict[key]) - av_mean) / av_std
                 # rank += ((fill_dict[key] - fill_mean) / fill_std)/10
                 # rank += (abs(spread_dict[key] - spread_mean) / spread_std)
+
+                # varstd = -1 * (var_dict[key] - var_mean) / var_std
+                # data.append(('range_std',varstd))
+                # sizestd = (size_dict[key] - size_mean) / size_std
+                # data.append(('size_std',sizestd))
+                # avstd = (np.mean(av_dict[key]) - av_mean) / av_std
+                # data.append(('range_vals_std',avstd))
+                # rank += ((fill_dict[key] - fill_mean) / fill_std)/10
+                # rank += (abs(spread_dict[key] - spread_mean) / spread_std)
+
                 # rank *= 1000
                 # rank = int(rank)
-                data.append(('rank',rank))
+                # data.append(('rank',rank))
                 # r = var_max - r
                 # rank = (10000*r)+float(s/size_max)*100
                 # rank = int(rank)
@@ -514,6 +533,11 @@ def TBD_analysis(customer, proto, bucket_size, thresh, graph, save_dir, result_t
                 # s *= 10000
                 # rank = int(r+s)
                 # data.append(("rank",rank))
+                if do_write is True:
+                    data.append(('likely_beacon',"yes"))
+                else:
+                    data.append(('likely_beacon','no'))
+
             	write_data(key, data, customer, proto, result_type)
 
 
